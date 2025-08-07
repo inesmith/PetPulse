@@ -1,30 +1,24 @@
+// App.tsx
 import React from 'react';
+import { GluestackUIProvider } from '@gluestack-ui/themed';
+import { config } from './gluestack-ui.config';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from './screens/LoginScreen';
-import SignupScreen from './screens/SignupScreen';
+import SignupScreen from './screens/SignupScreen'; // Assuming you have a SignupScreen
 
-export type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  Home: undefined;
-  Map: undefined;
-  PetProfile: undefined;
-  Health: undefined;
-  Activities: undefined;
-  Rewards: undefined;
-};
-
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <GluestackUIProvider config={config}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </GluestackUIProvider>
   );
 }
