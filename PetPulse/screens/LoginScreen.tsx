@@ -1,62 +1,138 @@
 import { Heading } from '@gluestack-ui/themed';
 import React from 'react';
-import { View, Text, Button, Image, StyleSheet } from 'react-native';
+import { View, Text, Button, Image, StyleSheet, TextInput, TouchableOpacity, ImageBackground, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { config } from '../gluestack-ui.config';
 
-const LoginScreen = ({ navigation }: any) => {
+const { width } = Dimensions.get('window');
+
+const colors = {
+  blue: (config as any)?.theme?.colors?.blue ?? '#73C3D1',
+  white: (config as any)?.theme?.colors?.white ?? '#F8F7F4',
+  accent: (config as any)?.theme?.colors?.o ?? '#EE734A',
+  text: (config as any)?.theme?.colors?.text ?? '#1C1C1C',
+};
+
+export default function LoginScreen({ navigation }: any) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.white }]}>
+      {/* TOP: logo + headings */}
+      <View style={styles.top}>
         <Image
           source={require('../assets/petpulse-logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
+        <Text style={styles.title}>WELCOME TO PETPULSE</Text>
+        <Text style={[styles.subtitle, { color: colors.accent }]}>
+          Track their steps. Log their health.{'\n'}Earn real rewards.
+        </Text>
+      </View>
 
-        <Text style={styles.title}>Welcome to PetPulse</Text>
-        <Text style={styles.subtitle}>Track their steps. Log their health.{"\n"} Earn real rewards.</Text>
-
-        <Button
-          title="Go to Signup"
-          onPress={() => navigation.navigate('Signup')}
+      {/* BOTTOM: solid blue with wave overlay */}
+      <View style={[styles.bottom, { backgroundColor: colors.blue }]}>
+        {/* Wave overlay — white “cutout” */}
+        <Image
+          source={require('../assets/Vector1.png')}
+          style={styles.wave}
+          resizeMode="stretch"
         />
+
+        {/* Content on blue */}
+        <View style={styles.bottomContent}>
+          <Text style={styles.sectionTitle}>Log In</Text>
+          <Text style={styles.sectionCopy}>
+            Access your races, stats, and the community.
+          </Text>
+
+          <TextInput
+            placeholder="Username"
+            placeholderTextColor="#707070"
+            style={styles.input}
+          />
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#707070"
+            secureTextEntry
+            style={styles.input}
+          />
+
+          <View style={styles.signupRow}>
+            <Text style={styles.signupCopy}>Don’t have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <Text style={styles.signupLink}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
-};
-
-export default LoginScreen;
+}
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F7F4', // secondary color from your theme
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
+  safeArea: { flex: 1 },
+
+  top: {
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12, // keep tight so the blue comes up closer
+    marginTop: 100,
   },
-  logo: {
-    width: 110,
-    height: 110,
-    marginTop: -400,
-    paddingBottom: 20,
-  },
+  logo: { width: 110, height: 110, marginBottom: 8 },
   title: {
-    fontSize: 30,
-    fontStyle: 'normal',
-    marginTop: 16,
-    color: '#333',
-    fontFamily: 'Staatliches', // heading font from your theme
+    fontSize: 28,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#000',
+    letterSpacing: 0.5,
+    // fontFamily: 'Staatliches',
   },
   subtitle: {
-    fontSize: 17,
-    color: '#EE734A',
+    marginTop: 6,
+    fontSize: 14,
     textAlign: 'center',
-    marginVertical: 8,
-    fontFamily: 'barlow semi-condensed', // body font from your theme
+    // fontFamily: 'Inter',
   },
 
+  bottom: { flex: 1, position: 'relative', marginTop: 150, backgroundColor: colors.blue }, // negative margin to pull up the wave
+
+  // >>> TUNE THESE TWO KNOBS IF NEEDED <<<
+  // Move the white cut-in higher/lower with "top"
+  // Make the curve deeper/shallower with "height"
+  wave: {
+    position: 'absolute',
+    top: -50,      // was -34; move higher to erase the big white gap
+    left: 0,
+    width: width,
+    height: 400,   // was 120; a bit deeper curve
+    tintColor: '#73C3D1', // white from theme to cut into blue
+    zIndex: 1,
+  },
+
+  bottomContent: {
+    paddingHorizontal: 20,
+    paddingTop: 100, // space below the wave; adjust with wave changes
+    position: 'relative', 
+    zIndex: 2,
+  },
+  sectionTitle: {
+    color: '#F8F7F4',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  sectionCopy: { color: '#F8F7F4', marginBottom: 16 },
+  input: {
+    backgroundColor: '#F8F7F4',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 50,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  signupRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
+  signupCopy: { color: '#F8F7F4' },
+  signupLink: { color: '#F8F7F4', fontWeight: '800', textDecorationLine: 'underline' },
 });
