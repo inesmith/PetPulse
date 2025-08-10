@@ -62,6 +62,13 @@ export default function SignupScreen({ navigation }: any) {
             style={styles.input}
           />
 
+          <TouchableOpacity
+            style={styles.continueBtn}
+            onPress={() => navigation.navigate('Home')} // make sure 'Home' matches your route name
+            >
+          <Text style={styles.continueBtnText}>Sign Up</Text>
+          </TouchableOpacity>
+
           <View style={styles.loginRow}>
             <Text style={styles.loginCopy}>Already have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -117,7 +124,7 @@ const styles = StyleSheet.create({
 
   bottomContent: {
     paddingHorizontal: 20,
-    paddingTop: 20, // space below the wave; adjust with wave changes
+    paddingTop: -35, // space below the wave; adjust with wave changes
     position: 'relative', 
     zIndex: 2,
   },
@@ -136,6 +143,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
+  },
+   continueBtn: {
+  backgroundColor: '#F8F7F4', // or colors.blue
+  paddingVertical: 14,
+  borderRadius: 12,
+  alignItems: 'center',
+  marginTop: 10,
+  },
+  continueBtnText: {
+  color: '#EE734A',
+  fontWeight: '800',
+  fontSize: 16,
   },
   loginRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   loginCopy: { color: '#F8F7F4' },
