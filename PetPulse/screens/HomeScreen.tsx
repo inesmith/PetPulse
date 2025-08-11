@@ -63,7 +63,7 @@ export default function HomeScreen() {
         {/* Steps */}
         <View style={[styles.stepsCard, { borderColor: colors.accent }]}>
           <Text style={styles.stepsLabel}>STEPS</Text>
-          <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow2]}>3478</Text>
+          <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]} >3478</Text>
         </View>
 
         {/* Map preview */}
@@ -180,13 +180,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
-  shadow2: {
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 1,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
-  },
+
 
   mapCard: {
     marginTop: 20,
