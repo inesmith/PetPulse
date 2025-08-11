@@ -10,6 +10,7 @@ import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen'; 
 import PetProfileScreen from './screens/PetProfileScreen';
 import ActivitiesScreen from './screens/ActivitiesScreen';
+import RewardsScreen from './screens/RewardsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,7 @@ export default function App() {
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="PetProfile" component={PetProfileScreen} />
           <Stack.Screen name="Activities" component={ActivitiesScreen} />
+          <Stack.Screen name="Rewards" component={RewardsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </GluestackUIProvider>
