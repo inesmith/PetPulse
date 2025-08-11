@@ -155,4 +155,4 @@ const styles = StyleSheet.create({
   signupRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   signupCopy: { color: '#F8F7F4' },
   signupLink: { color: '#F8F7F4', fontWeight: '800', textDecorationLine: 'underline' },
-});
+}); 

@@ -68,3 +68,4 @@ const styles = StyleSheet.create({
   },
   dot: { width: 56, height: 56, borderRadius: 28, opacity: 0.95 },
 });
+ 

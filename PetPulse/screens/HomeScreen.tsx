@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Dimensions, Ima
 import { config } from '../gluestack-ui.config';
 import PetNavigator from '../components/PetNavigator';
 import PetNavigatorImages from '../components/PetNavigator';
+import BottomNavBar from '../components/BottomNavBar';
 
 
 const { width } = Dimensions.get('window');
@@ -54,7 +55,6 @@ export default function HomeScreen({}: any) {
         <View style={[styles.reminderBox, { backgroundColor: colors.grey }]} />
         <View style={[styles.reminderBox, { backgroundColor: colors.grey }]} />
         <View style={[styles.reminderBox, { backgroundColor: colors.grey }]} />
-        <View style={[styles.reminderBox, { backgroundColor: colors.grey }]} />
       </View>
 
       {/* Steps stat card */}
@@ -66,7 +66,7 @@ export default function HomeScreen({}: any) {
       {/* Map preview (static image background placeholder) */}
       <View style={[styles.mapCard, { borderColor: colors.accent }]}>
         <ImageBackground
-          source={require('../assets/map-placeholder.png')} // add any light map-like image, or replace with a colored View
+          source={require('../assets/map-placeholder.png')}
           style={styles.mapImg}
           imageStyle={{ borderRadius: 16, opacity: 0.25 }}
           resizeMode="cover"
@@ -77,12 +77,9 @@ export default function HomeScreen({}: any) {
         </ImageBackground>
       </View>
 
-      {/* Bottom pager pill with dots */}
-      <View style={[styles.pagerWrap, { backgroundColor: colors.blue }]}>
-        <View style={[styles.pagerDot, { backgroundColor: '#F8F7F4' }]} />
-        <View style={[styles.pagerDot, { backgroundColor: '#F8F7F4' }]} />
-        <View style={[styles.pagerDot, { backgroundColor: '#F8F7F4' }]} />
-        <View style={[styles.pagerDot, { backgroundColor: '#F8F7F4' }]} />
+      {/* Bottom navigation */}
+      <View style={{ flex: 1, backgroundColor: '#F8F7F4' }}>
+        <BottomNavBar />
       </View>
     </View>
     </SafeAreaView>  
@@ -140,7 +137,7 @@ const styles = StyleSheet.create({
 
   // --- Header text ---
   headerTextWrap: {
-    marginTop: 50,
+    marginTop: 60,
     alignItems: 'flex-end',
     paddingHorizontal: 22,
   },
@@ -198,7 +195,7 @@ const styles = StyleSheet.create({
   },
   reminderBox: {
     flex: 1,
-    height: 70,
+    height: 90,
     width: 70,
     borderRadius: 16,
     opacity: 0.6,
@@ -206,7 +203,7 @@ const styles = StyleSheet.create({
 
   // --- Steps card ---
   stepsCard: {
-    marginTop: 16,
+    marginTop: 20,
     marginHorizontal: 22,
     borderRadius: 16,
     borderWidth: 2,
@@ -237,7 +234,7 @@ const styles = StyleSheet.create({
   },
   // --- Map card ---
   mapCard: {
-    marginTop: 14,
+    marginTop: 20,
     marginHorizontal: 22,
     borderRadius: 16,
     borderWidth: 2,
@@ -245,7 +242,7 @@ const styles = StyleSheet.create({
   },
   mapImg: {
     width: '100%',
-    height: 160,
+    height: 200,
     justifyContent: 'flex-end',
     padding: 12,
   },
@@ -254,21 +251,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // --- Bottom pager ---
-  pagerWrap: {
-    marginTop: 18,
-    alignSelf: 'center',
-    width: width - 44,
-    height: 64,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-  },
-  pagerDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    opacity: 0.95,
-  },
 });
