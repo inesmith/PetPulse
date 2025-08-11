@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen'; 
+import PetProfileScreen from './screens/PetProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,8 +20,10 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="PetProfile" component={PetProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </GluestackUIProvider>
   );
 } 
+

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Dimensions, ImageBackground, } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ImageBackground, } from 'react-native';
 import { config } from '../gluestack-ui.config';
 import PetNavigator from '../components/PetNavigator';
 import PetNavigatorImages from '../components/PetNavigator';
 import BottomNavBar from '../components/BottomNavBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 
 const { width } = Dimensions.get('window');
@@ -17,16 +19,11 @@ const colors = {
   shadow: 'rgba(0,0,0,0.12)',
 };
 
-/**
- * DESIGN-ONLY Home Screen with a tappable Pet Navigator
- * - Toggle the nav by tapping the blue shape at the top-left
- * - No data, no Firestore — just layout + styling
- */
 export default function HomeScreen({}: any) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.White }]}>
+<SafeAreaView style={[styles.safe, { backgroundColor: colors.White }]} edges={['top']}>
       <View style={{ flex: 1, backgroundColor: colors.White }}>
         {/* <PetNavigatorImages /> */}
 
@@ -79,9 +76,9 @@ export default function HomeScreen({}: any) {
 
       {/* Bottom navigation */}
       <View style={{ flex: 1, backgroundColor: '#F8F7F4' }}>
+        </View>
+        </View>
         <BottomNavBar />
-      </View>
-    </View>
     </SafeAreaView>  
   );
 }
@@ -206,7 +203,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: 22,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     backgroundColor: '#F8F7F4',
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -237,12 +234,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: 22,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     overflow: 'hidden',
   },
   mapImg: {
     width: '100%',
-    height: 200,
+    height: 250,
     justifyContent: 'flex-end',
     padding: 12,
   },

@@ -30,10 +30,10 @@ export default function BottomNavBar() {
   const { bottom } = useSafeAreaInsets();
 
   return (
-   <View
-  style={[styles.container, { bottom: Math.max(bottom, 8) }]}
-  pointerEvents="box-none"
->
+    <View
+      style={[styles.container, { bottom: Math.max(bottom, 8) }]}
+      pointerEvents="box-none"
+    >
       {/* Blue rounded bar */}
       <View style={[styles.bar, { backgroundColor: colors.blue }]} />
 
@@ -71,9 +71,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    height: 64,
-    backgroundColor: 'transparent',
-    marginBottom: -35,
+    height: BAR_HEIGHT,
+    backgroundColor: 'transparent', // keep transparent
+    // ❌ remove marginBottom hack
   },
   bar: {
     position: 'absolute',
