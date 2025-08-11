@@ -1,6 +1,6 @@
 import { Heading } from '@gluestack-ui/themed';
 import React from 'react';
-import { View, Text, Button, Image, StyleSheet, TextInput, TouchableOpacity, ImageBackground, Dimensions } from 'react-native';
+import { View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ImageBackground, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { config } from '../gluestack-ui.config';
 
@@ -15,7 +15,10 @@ const colors = {
 
 export default function LoginScreen({ navigation }: any) {
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.white }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.white }]}
+      edges={['top']} // Only top safe area to avoid bottom white box
+    >
       {/* TOP: logo + headings */}
       <View style={styles.top}>
         <Image
@@ -59,9 +62,9 @@ export default function LoginScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={styles.continueBtn}
-            onPress={() => navigation.navigate('Home')} // make sure 'Home' matches your route name
+            onPress={() => navigation.navigate('Home')}
           >
-          <Text style={styles.continueBtnText}>Log In</Text>
+            <Text style={styles.continueBtnText}>Log In</Text>
           </TouchableOpacity>
 
           <View style={styles.signupRow}>
@@ -69,7 +72,6 @@ export default function LoginScreen({ navigation }: any) {
             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
               <Text style={styles.signupLink}>Sign Up</Text>
             </TouchableOpacity>
-
           </View>
         </View>
       </View>
@@ -84,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 8,
-    paddingBottom: 12, // keep tight so the blue comes up closer
+    paddingBottom: 12,
     marginTop: 100,
   },
   logo: { width: 110, height: 110, marginBottom: 8 },
@@ -94,34 +96,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#000',
     letterSpacing: 0.5,
-    // fontFamily: 'Staatliches',
   },
   subtitle: {
     marginTop: 6,
     fontSize: 14,
     textAlign: 'center',
-    // fontFamily: 'Inter',
   },
 
-  bottom: { flex: 1, position: 'relative', marginTop: 150, backgroundColor: colors.blue }, // negative margin to pull up the wave
+  bottom: { flex: 1, position: 'relative', marginTop: 150 },
 
-  // >>> TUNE THESE TWO KNOBS IF NEEDED <<<
-  // Move the white cut-in higher/lower with "top"
-  // Make the curve deeper/shallower with "height"
   wave: {
     position: 'absolute',
-    top: -50,      // was -34; move higher to erase the big white gap
+    top: -50,
     left: 0,
     width: width,
-    height: 400,   // was 120; a bit deeper curve
-    tintColor: '#73C3D1', // white from theme to cut into blue
+    height: 400,
+    tintColor: '#73C3D1', 
     zIndex: 1,
   },
 
   bottomContent: {
     paddingHorizontal: 20,
-    paddingTop: 75, // space below the wave; adjust with wave changes
-    position: 'relative', 
+    paddingTop: 75,
+    position: 'relative',
     zIndex: 2,
   },
   sectionTitle: {
@@ -141,18 +138,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   continueBtn: {
-  backgroundColor: '#F8F7F4', // or colors.blue
-  paddingVertical: 14,
-  borderRadius: 12,
-  alignItems: 'center',
-  marginTop: 10,
+    backgroundColor: '#F8F7F4',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
   },
   continueBtnText: {
-  color: '#EE734A',
-  fontWeight: '800',
-  fontSize: 16,
+    color: '#EE734A',
+    fontWeight: '800',
+    fontSize: 16,
   },
   signupRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   signupCopy: { color: '#F8F7F4' },
   signupLink: { color: '#F8F7F4', fontWeight: '800', textDecorationLine: 'underline' },
-}); 
+});

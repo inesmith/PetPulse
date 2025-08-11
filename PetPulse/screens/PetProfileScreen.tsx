@@ -1,12 +1,11 @@
 // screens/PetProfileScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, KeyboardAvoidingView, Platform, TextInput, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, Image, Dimensions, KeyboardAvoidingView, Platform, TextInput, ScrollView, TouchableOpacity, } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -20,31 +19,39 @@ const colors = {
 };
 
 const HEADER_H = 330;
-const NAV_HEIGHT = 64;   
-const NAV_MARGIN = 8;      
+const NAV_HEIGHT = 64;
+const NAV_MARGIN = 8;
+// Lock the name pill height so the settings square can match it.
+const NAME_H = 72;
+const NAME_GAP = 6;
 
 export default function PetProfileScreen() {
+  const nav = useNavigation<any>();
   const [notes, setNotes] = useState('');
+  const [reminders, setReminders] = useState([{ id: 1 }, { id: 2 }, { id: 3 }]);
   const insets = useSafeAreaInsets();
 
-  // leave enough space at the bottom so notes aren’t hidden under the floating navbar
   const contentBottomPad = NAV_HEIGHT + Math.max(insets.bottom, NAV_MARGIN) + 16;
 
+  const handleAddReminder = () => {
+    setReminders(prev => [...prev, { id: prev.length + 1 }]);
+  };
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left', 'right']}>
       <View style={[styles.container, { backgroundColor: colors.white }]}>
         {/* Content scrolls; navbar is a sibling and stays fixed */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={80} // adjust if your header height changes
+          keyboardVerticalOffset={80}
         >
           <ScrollView
             contentContainerStyle={{ paddingBottom: contentBottomPad }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           >
-            {/* Header image (use your asset) */}
+            {/* Header image */}
             <View style={styles.photoWrap}>
               <Image
                 source={require('../assets/lina-lardi.png')}
@@ -53,16 +60,28 @@ export default function PetProfileScreen() {
               />
             </View>
 
-            {/* Name pill */}
-            <View style={[styles.nameCard, styles.shadow]}>
-              <View>
-                <Text style={[styles.petName, { color: colors.blue }]}>LINA LARDI</Text>
-                <Text style={[styles.petBreed, { color: colors.dark }]}>American Bulldog</Text>
+            {/* Name row: pill + settings square */}
+            <View style={styles.nameRow}>
+              {/* Name pill */}
+              <View style={[styles.nameCard, styles.shadow]}>
+                <View>
+                  <Text style={[styles.petName, { color: colors.blue }]}>LINA LARDI</Text>
+                  <Text style={[styles.petBreed, { color: colors.dark }]}>American Bulldog</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.labelSmall, { color: colors.dark }]}>DOB:</Text>
+                  <Text style={[styles.dob, { color: colors.dark }]}>4 MAY 2024</Text>
+                </View>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.labelSmall, { color: colors.dark }]}>DOB:</Text>
-                <Text style={[styles.dob, { color: colors.dark }]}>4 MAY 2024</Text>
-              </View>
+
+              {/* Settings square */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => nav.navigate('Settings')}
+                style={[styles.settingsSquare, styles.shadow]}
+              >
+                <Ionicons name="settings" size={26} color={colors.blue} />
+              </TouchableOpacity>
             </View>
 
             {/* Attribute chips */}
@@ -86,10 +105,26 @@ export default function PetProfileScreen() {
             {/* Upcoming reminders */}
             <Text style={[styles.sectionTitle, { color: '#6E6E6E' }]}>UPCOMING REMINDERS</Text>
             <View style={styles.remindersRow}>
-              <View style={[styles.reminderBox, { backgroundColor: '#F8F7F4' }]} />
-              <View style={[styles.reminderBox, { backgroundColor: '#F8F7F4' }]} />
-              <View style={[styles.reminderBox, { backgroundColor: '#F8F7F4' }]} />
-              <View style={[styles.reminderBox, { backgroundColor: '#F8F7F4' }]} />
+              {reminders.map((r) => (
+                <View
+                  key={r.id}
+                  style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]}
+                />
+              ))}
+
+              {/* Add Reminder tile (always last) */}
+              <TouchableOpacity
+                onPress={handleAddReminder}
+                activeOpacity={0.85}
+                style={[
+                  styles.reminderBox,
+                  styles.shadow,
+                  { backgroundColor: '#e9e8e6ff', alignItems: 'center', justifyContent: 'center' },
+                ]}
+              >
+                <Ionicons name="add" size={28} color={colors.blue} />
+                <Text style={styles.addText}>Add Reminder</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Editable Notes */}
@@ -155,28 +190,45 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
 
   photoWrap: {
-  height: HEADER_H,
-  width: '120%',
-  borderBottomLeftRadius: 140,
-  borderBottomRightRadius: 140,
-  overflow: 'hidden',
-  alignSelf: 'center',
-  marginTop: 0, // ensure no gap
-},
+    height: HEADER_H,
+    width: '120%',
+    borderBottomLeftRadius: 140,
+    borderBottomRightRadius: 140,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    marginTop: 0,
+  },
   photo: { width: '100%', height: '100%' },
 
-  nameCard: {
+  /* --- Name row (pill + settings) --- */
+  nameRow: {
     marginTop: -26,
     alignSelf: 'center',
-    width: width - 100,
+    width: width - 65,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nameCard: {
+    height: NAME_H,
+    flexGrow: 1,
+    width: width - 65 - NAME_H - NAME_GAP, 
     backgroundColor: '#e9e8e6ff',
     borderRadius: 28,
-    paddingVertical: 14,
     paddingHorizontal: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginRight: NAME_GAP,
   },
+  settingsSquare: {
+    width: NAME_H,
+    height: NAME_H,
+    borderRadius: 28,
+    backgroundColor: '#e9e8e6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   shadow: {
     shadowColor: 'rgba(0,0,0,0.15)',
     shadowOpacity: 1,
@@ -222,16 +274,27 @@ const styles = StyleSheet.create({
   divider: { marginTop: 20, marginHorizontal: 22, borderBottomWidth: 1.5 },
 
   sectionTitle: { marginTop: 14, paddingHorizontal: 22, fontWeight: '900', fontSize: 14, letterSpacing: 0.2 },
+
   remindersRow: {
     marginTop: 20,
     paddingHorizontal: 22,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   reminderBox: {
     width: (width - 70) / 4,
     height: 90,
     borderRadius: 16,
+    backgroundColor: '#e9e8e6ff',
+  },
+  addText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#6E6E6E',
+    marginTop: 4,
+    textAlign: 'center',
   },
 
   // Notes card styles
