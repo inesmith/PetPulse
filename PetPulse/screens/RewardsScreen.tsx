@@ -67,7 +67,7 @@ export default function RewardsScreen() {
             ))}
           </View>
 
-          {/* Next Reward section (kept as bordered rows) */}
+          {/* Next Reward section */}
           <Text style={[styles.sectionLabel, { marginTop: 14 }]}>NEXT REWARD</Text>
           <View style={{ paddingHorizontal: 22 }}>
             {upcoming.map(u => (
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
 
   /* List (matches Activities recent list) */
-  list: { paddingHorizontal: 22, gap: 14 },
+  list: { paddingHorizontal: 22, gap: 6 },
   listItem: {
     borderRadius: ROW_RADIUS,
     backgroundColor: colors.white,

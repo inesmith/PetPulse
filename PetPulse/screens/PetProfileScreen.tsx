@@ -77,7 +77,7 @@ export default function PetProfileScreen() {
               {/* Settings square */}
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => nav.navigate('Settings')}
+                onPress={() => nav.navigate('PetSettings')}
                 style={[styles.settingsSquare, styles.shadow]}
               >
                 <Ionicons name="settings" size={26} color={colors.blue} />

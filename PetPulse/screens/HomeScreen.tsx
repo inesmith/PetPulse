@@ -43,7 +43,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => nav.navigate('Settings')}
+                onPress={() => nav.navigate('UserSettings')}
               style={[styles.settingsSquare, styles.shadow]}
             >
               <Ionicons name="settings" size={24} color={colors.blue} />

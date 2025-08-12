@@ -31,13 +31,47 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const CARD_R = 18;
 
+/* Data to render rows (left label | right value) */
+const HEAT = [
+  { id: 1, left: '1ST HEAT', right: 'DATE' },
+  { id: 2, left: '2ND HEAT', right: 'DATE' },
+  { id: 3, left: '3RD HEAT', right: 'DATE' },
+];
+
+const PREGNANCY = [{ id: 1, left: 'STATUS', right: 'NO' }];
+
+const VET_VISITS = [
+  { id: 1, left: 'DATE', right: 'INFO' },
+  { id: 2, left: 'DATE', right: 'INFO' },
+  { id: 3, left: 'DATE', right: 'INFO' },
+];
+
+const VACCINATIONS = [
+  { id: 1, left: 'NAME', right: 'DATE' },
+  { id: 2, left: 'NAME', right: 'DATE' },
+  { id: 3, left: 'NAME', right: 'DATE' },
+];
+
+type PregEntry = { id: number; date: string; pups: string };
+
 export default function HealthScreen() {
   const insets = useSafeAreaInsets();
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 16;
 
-  // tiny local state demo (you can wire to storage later)
+  // Medication stays editable
   const [meds, setMeds] = useState(['', '', '']);
   const addMed = () => setMeds(prev => [...prev, '']);
+
+  // Stubs for other add buttons – wire up later
+  const addHeat = () => {};
+  const addPregnancy = () => {};
+  const addVetVisit = () => {};
+  const addVaccination = () => {};
+
+  // Pregnancy history (editable rows: DATE | PUPPIES)
+  const [pregHistory, setPregHistory] = useState<PregEntry[]>([]);
+  const addPregHistory = () =>
+    setPregHistory(prev => [...prev, { id: Date.now(), date: '', pups: '' }]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
@@ -51,7 +85,7 @@ export default function HealthScreen() {
             contentContainerStyle={{ paddingBottom: padBottom }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Page header (name at right) */}
+            {/* Header (name at right) */}
             <View style={styles.headerTopRow}>
               <View />
               <View style={{ alignItems: 'flex-end', paddingRight: 22 }}>
@@ -67,56 +101,116 @@ export default function HealthScreen() {
               </View>
             </View>
 
-
-            {/* MEDICATION */}
+            {/* MEDICATION (inputs) */}
             <SectionHeader title="MEDICATION">
               <TouchableOpacity onPress={addMed} accessibilityRole="button">
                 <View style={styles.roundBtn}>
-                  <Ionicons name="add" size={16} color={colors.white} />
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
                 </View>
               </TouchableOpacity>
             </SectionHeader>
             <View style={styles.sectionPad}>
               {meds.map((v, i) => (
-                <InputRow
-                  key={i}
-                  placeholder="MED NAME"
-                  value={v}
-                  onChangeText={t => {
-                    const copy = meds.slice();
-                    copy[i] = t;
-                    setMeds(copy);
-                  }}
-                />
+                <View key={i} style={[styles.inputRow, { borderColor: colors.accent }]}>
+                  <TextInput
+                    value={v}
+                    onChangeText={t => {
+                      const copy = meds.slice();
+                      copy[i] = t;
+                      setMeds(copy);
+                    }}
+                    placeholder="MED NAME"
+                    placeholderTextColor={colors.label}
+                    style={styles.input}
+                  />
+                </View>
               ))}
             </View>
 
-            {/* HEAT TRACKER */}
-            <SectionHeader title="HEAT TRACKER" />
+            {/* VET VISITS (rows) */}
+            <SectionHeader title="VET VISITS">
+              <TouchableOpacity onPress={addVetVisit} accessibilityRole="button">
+                <View style={styles.roundBtn}>
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
+                </View>
+              </TouchableOpacity>
+            </SectionHeader>
             <View style={styles.sectionPad}>
-              <InputPair leftPlaceholder="1ST HEAT" rightPlaceholder="DATE" />
-              <InputPair leftPlaceholder="2ND HEAT" rightPlaceholder="DATE" />
+              {VET_VISITS.map(r => (
+                <HealthRow key={r.id} left={r.left} right={r.right} />
+              ))}
             </View>
 
-            {/* PREGNANCY */}
-            <SectionHeader title="PREGNANCY" />
+            {/* VACCINATIONS (rows) */}
+            <SectionHeader title="VACCINATIONS">
+              <TouchableOpacity onPress={addVaccination} accessibilityRole="button">
+                <View style={styles.roundBtn}>
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
+                </View>
+              </TouchableOpacity>
+            </SectionHeader>
             <View style={styles.sectionPad}>
-              <InputPair leftPlaceholder="NO" rightPlaceholder="DATE" />
+              {VACCINATIONS.map(r => (
+                <HealthRow key={r.id} left={r.left} right={r.right} />
+              ))}
             </View>
 
-            {/* VET VISITS */}
-            <SectionHeader title="VET VISITS" />
+            {/* HEAT TRACKER (rows) */}
+            <SectionHeader title="HEAT TRACKER">
+              <TouchableOpacity onPress={addHeat} accessibilityRole="button">
+                <View style={styles.roundBtn}>
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
+                </View>
+              </TouchableOpacity>
+            </SectionHeader>
             <View style={styles.sectionPad}>
-              <InputPair leftPlaceholder="DATE:" rightPlaceholder="INFO" />
-              <InputPair leftPlaceholder="DATE:" rightPlaceholder="INFO" />
-              <InputPair leftPlaceholder="DATE:" rightPlaceholder="INFO" />
+              {HEAT.map(r => (
+                <HealthRow key={r.id} left={r.left} right={r.right} />
+              ))}
             </View>
 
-            {/* VACCINATIONS */}
-            <SectionHeader title="VACCINATIONS" />
+            {/* PREGNANCY (rows) */}
+            <SectionHeader title="PREGNANCY">
+              <TouchableOpacity onPress={addPregnancy} accessibilityRole="button">
+                <View style={styles.roundBtn}>
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
+                </View>
+              </TouchableOpacity>
+            </SectionHeader>
             <View style={styles.sectionPad}>
-              <InputPair leftPlaceholder="DATE:" rightPlaceholder="INFO" />
-              <InputPair leftPlaceholder="DATE:" rightPlaceholder="INFO" />
+              {PREGNANCY.map(r => (
+                <HealthRow key={r.id} left={r.left} right={r.right} />
+              ))}
+            </View>
+
+            {/* PREGNANCY HISTORY (editable rows: DATE | PUPPIES) */}
+            <SectionHeader title="PREGNANCY HISTORY">
+              <TouchableOpacity onPress={addPregHistory} accessibilityRole="button">
+                <View style={styles.roundBtn}>
+                  <Ionicons name="add" size={16} color="#f8f7f4" />
+                </View>
+              </TouchableOpacity>
+            </SectionHeader>
+            <View style={styles.sectionPad}>
+              {pregHistory.map((e, idx) => (
+                <EditablePairRow
+                  key={e.id}
+                  leftPlaceholder="DATE"
+                  rightPlaceholder="PUPPIES"
+                  leftValue={e.date}
+                  rightValue={e.pups}
+                  onLeftChange={(t) => {
+                    const copy = [...pregHistory];
+                    copy[idx] = { ...copy[idx], date: t };
+                    setPregHistory(copy);
+                  }}
+                  onRightChange={(t) => {
+                    const copy = [...pregHistory];
+                    copy[idx] = { ...copy[idx], pups: t.replace(/[^0-9]/g, '') };
+                    setPregHistory(copy);
+                  }}
+                />
+              ))}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -139,43 +233,47 @@ function SectionHeader({ title, children }: { title: string; children?: React.Re
   );
 }
 
-function InputRow({
-  value,
-  onChangeText,
-  placeholder,
-}: {
-  value?: string;
-  onChangeText?: (t: string) => void;
-  placeholder?: string;
-}) {
+function HealthRow({ left, right }: { left: string; right: string | number }) {
   return (
-    <View style={[styles.inputRow, { borderColor: colors.accent }]}>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.label}
-        style={styles.input}
-      />
+    <View style={[styles.row, { borderColor: colors.accent }]}>
+      <Text style={styles.cellLeft} numberOfLines={1}>{left}</Text>
+      <Text style={styles.cellRight} numberOfLines={1}>{right}</Text>
     </View>
   );
 }
 
-function InputPair({
+function EditablePairRow({
   leftPlaceholder,
   rightPlaceholder,
+  leftValue,
+  rightValue,
+  onLeftChange,
+  onRightChange,
 }: {
   leftPlaceholder: string;
   rightPlaceholder: string;
+  leftValue: string;
+  rightValue: string;
+  onLeftChange: (t: string) => void;
+  onRightChange: (t: string) => void;
 }) {
   return (
-    <View style={styles.pairRow}>
-      <View style={[styles.inputRow, styles.flex1, { borderColor: colors.accent, marginRight: 10 }]}>
-        <TextInput placeholder={leftPlaceholder} placeholderTextColor={colors.label} style={styles.input} />
-      </View>
-      <View style={[styles.inputRow, styles.flex1, { borderColor: colors.accent, marginLeft: 10 }]}>
-        <TextInput placeholder={rightPlaceholder} placeholderTextColor={colors.label} style={styles.input} />
-      </View>
+    <View style={[styles.row, { borderColor: colors.accent }]}>
+      <TextInput
+        value={leftValue}
+        onChangeText={onLeftChange}
+        placeholder={leftPlaceholder}
+        placeholderTextColor={colors.label}
+        style={styles.cellInputLeft}
+      />
+      <TextInput
+        value={rightValue}
+        onChangeText={onRightChange}
+        placeholder={rightPlaceholder}
+        placeholderTextColor={colors.label}
+        keyboardType="number-pad"
+        style={styles.cellInputRight}
+      />
     </View>
   );
 }
@@ -192,12 +290,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   petName: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '900',
     letterSpacing: 0.4,
     color: colors.text,
   },
-  petBreed: { fontSize: 12, color: '#888', marginTop: 2 },
+  petBreed: { fontSize: 12, color: '#6E6E6E', marginTop: 2 },
 
   pillWrap: { marginTop: 55, paddingHorizontal: 22 },
   pill: {
@@ -208,13 +306,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'flex-end',
     paddingHorizontal: 50,
+    marginBottom: 45,
   },
   pillText: { fontWeight: '900', fontSize: 18, letterSpacing: 0.3 },
 
- 
-
   sectionHeaderRow: {
-    marginTop: 45,
+    marginTop: 20,
     paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,6 +324,7 @@ const styles = StyleSheet.create({
   },
   sectionPad: { paddingHorizontal: 22, marginTop: 10 },
 
+  /* Inputs (Medication) */
   inputRow: {
     height: 52,
     borderRadius: CARD_R,
@@ -238,14 +336,37 @@ const styles = StyleSheet.create({
   },
   input: { fontWeight: '800', fontSize: 14, color: colors.text },
 
-  pairRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  flex1: { flex: 1 },
+  row: {
+    height: 58,
+    borderRadius: CARD_R,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cellLeft:  { flex: 1.2, fontWeight: '800', color: '#6E6E6E' },
+  cellRight: { flex: 0.9, fontWeight: '700', color: '#6E6E6E', textAlign: 'right' },
+
+  // Inputs that live inside a row (for Pregnancy History)
+  cellInputLeft: {
+    flex: 1.2,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  cellInputRight: {
+    flex: 0.9,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'right',
+  },
 
   roundBtn: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#73C3D1',
+    backgroundColor: '#73c3d1',
     alignItems: 'center',
     justifyContent: 'center',
   },
