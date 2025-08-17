@@ -4,6 +4,7 @@ import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { config } from './gluestack-ui.config';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
@@ -17,13 +18,34 @@ import PetSettingsScreen from './screens/PetSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
+
+function RootNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null; // or a splash loader
+  }
+
+    return user ? (
+    <Stack.Navigator>
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      {/** add other protected screens here */}
+    </Stack.Navigator>
+  ) : (
+    <Stack.Navigator>
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   return (
     <GluestackUIProvider config={config}>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} /> 
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="PetProfile" component={PetProfileScreen} />
           <Stack.Screen name="Activities" component={ActivitiesScreen} />

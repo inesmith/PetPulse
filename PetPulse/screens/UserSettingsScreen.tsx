@@ -272,10 +272,10 @@ const styles = StyleSheet.create({
   genderChipActive: {
     backgroundColor: colors.grey,
     borderWidth: 1.5,
-    borderColor: colors.blue,
+    borderColor: colors.accent,
   },
   genderText: { fontWeight: '800', color: '#6E6E6E', fontSize: 12 },
-  genderTextActive: { color: colors.text },
+  genderTextActive: { color: colors.blue },
 
   saveBtn: {
     height: 54,

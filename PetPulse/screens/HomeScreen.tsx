@@ -1,11 +1,13 @@
 // screens/HomeScreen.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, ImageBackground, TouchableOpacity } from 'react-native';
+import { View, Button, Text, StyleSheet, Dimensions, ImageBackground, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
+import { useAuth } from '../context/AuthContext';
+
 
 const { width } = Dimensions.get('window');
 
@@ -17,24 +19,33 @@ const colors = {
   grey: '#DADADA',
 };
 
-const TODAY_H = 60; // keep Today pill height consistent with design
+const TODAY_H = 60; 
 
 export default function HomeScreen() {
   const nav = useNavigation<any>();
+  const { logout, user } = useAuth();
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.White }]} edges={['left','right']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.White }]}
+      edges={['left', 'right']}
+    >
       <View style={{ flex: 1, backgroundColor: colors.White }}>
         {/* Welcome text */}
         <View style={styles.headerTextWrap}>
-          <Text style={styles.welcome}>WELCOME BACK,{'\n'}USER</Text>
+          <Text style={styles.welcome}>
+            WELCOME BACK,{'\n'}
+            {user?.displayName ?? user?.email ?? 'USER'}
+          </Text>
         </View>
 
-        {/* Today row: Today card + Settings square, centered together */}
+        {/* Today row: Today card + Settings square */}
         <View style={styles.todayWrap}>
           <View style={styles.todayRow}>
             <View style={[styles.todayCard, styles.shadow]}>
-              <Text style={[styles.todayLeft, { color: colors.accent }]}>TODAY</Text>
+              <Text style={[styles.todayLeft, { color: colors.accent }]}>
+                TODAY
+              </Text>
               <View style={styles.todayRight}>
                 <Text style={styles.todayRightTop}>WED,</Text>
                 <Text style={styles.todayRightBottom}>27 JULY</Text>
@@ -43,7 +54,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
-                onPress={() => nav.navigate('UserSettings')}
+              onPress={() => nav.navigate('UserSettings')}
               style={[styles.settingsSquare, styles.shadow]}
             >
               <Ionicons name="settings" size={24} color={colors.blue} />
@@ -54,16 +65,48 @@ export default function HomeScreen() {
         {/* Reminders */}
         <Text style={styles.sectionLabel}>REMINDERS</Text>
         <View style={styles.remindersRow}>
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
+          <View
+            style={[
+              styles.reminderBox,
+              styles.shadow,
+              { backgroundColor: '#e9e8e6ff' },
+            ]}
+          />
+          <View
+            style={[
+              styles.reminderBox,
+              styles.shadow,
+              { backgroundColor: '#e9e8e6ff' },
+            ]}
+          />
+          <View
+            style={[
+              styles.reminderBox,
+              styles.shadow,
+              { backgroundColor: '#e9e8e6ff' },
+            ]}
+          />
+          <View
+            style={[
+              styles.reminderBox,
+              styles.shadow,
+              { backgroundColor: '#e9e8e6ff' },
+            ]}
+          />
         </View>
 
         {/* Steps */}
         <View style={[styles.stepsCard, { borderColor: colors.accent }]}>
           <Text style={styles.stepsLabel}>STEPS</Text>
-          <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]} >3478</Text>
+          <Text
+            style={[
+              styles.stepsValue,
+              { color: colors.blue },
+              styles.shadow,
+            ]}
+          >
+            3478
+          </Text>
         </View>
 
         {/* Map preview */}
@@ -78,6 +121,11 @@ export default function HomeScreen() {
               DISTANCE: 2,5 km
             </Text>
           </ImageBackground>
+        </View>
+
+        {/* Sign out button */}
+        <View style={{ marginTop: 20, marginHorizontal: 22 }}>
+          <Button title="Sign Out" color={colors.accent} onPress={logout} />
         </View>
       </View>
 
@@ -103,7 +151,6 @@ const styles = StyleSheet.create({
   },
 
   todayWrap: { marginTop: 55, paddingHorizontal: 22 },
-  // Center the Today card + Settings square as one group
   todayRow: {
     alignSelf: 'flex-end',
     flexDirection: 'row',
@@ -117,9 +164,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-
-
-    // width tuned so card + square look balanced in center
     width: width * 0.58,
   },
   settingsSquare: {
@@ -140,7 +184,12 @@ const styles = StyleSheet.create({
   todayLeft: { fontWeight: '900', fontSize: 18, letterSpacing: 0.2 },
   todayRight: { alignItems: 'flex-end' },
   todayRightTop: { color: '#777', fontSize: 12, lineHeight: 14 },
-  todayRightBottom: { color: '#777', fontSize: 12, lineHeight: 14, fontWeight: '700' },
+  todayRightBottom: {
+    color: '#777',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
 
   sectionLabel: {
     marginTop: 45,
@@ -180,7 +229,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
-
 
   mapCard: {
     marginTop: 20,

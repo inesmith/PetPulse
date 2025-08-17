@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   chipText: { fontWeight: '800', color: '#6E6E6E', fontSize: 12 },
-  chipTextActive: { color: colors.text },
+  chipTextActive: { color: colors.blue },
 
   saveBtn: {
     height: 54,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveText: {
-    color: colors.accent,
+    color: colors.blue,
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.3,

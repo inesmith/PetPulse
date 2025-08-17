@@ -68,7 +68,7 @@ export default function RewardsScreen() {
           </View>
 
           {/* Next Reward section */}
-          <Text style={[styles.sectionLabel, { marginTop: 14 }]}>NEXT REWARD</Text>
+          <Text style={[styles.sectionLabel, { marginTop: 30 }]}>NEXT REWARD</Text>
           <View style={{ paddingHorizontal: 22 }}>
             {upcoming.map(u => (
               <View key={u.id} style={[styles.row, { borderColor: colors.accent }]}>

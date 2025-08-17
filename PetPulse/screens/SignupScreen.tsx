@@ -1,8 +1,9 @@
 // screens/SignupScreen.tsx
-import React from 'react';
-import { View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Dimensions, Alert, ActivityIndicator, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { config } from '../gluestack-ui.config';
+import { registerUser } from '../services/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -14,6 +15,27 @@ const colors = {
 };
 
 export default function SignupScreen({ navigation }: any) {
+  const [username, setUsername] = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy]         = useState(false);
+
+  const handleSignup = async () => {
+    if (!username.trim() || !email.trim() || !password) {
+      Alert.alert('Missing info', 'Please fill username, email and password.');
+      return;
+    }
+    try {
+      setBusy(true);
+      await registerUser(email, password, username);
+      // Signed in automatically; AuthProvider will switch stacks.
+    } catch (e: any) {
+      Alert.alert('Sign up failed', e?.message ?? 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.white }]}
@@ -51,25 +73,38 @@ export default function SignupScreen({ navigation }: any) {
           <TextInput
             placeholder="Username"
             placeholderTextColor="#707070"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.input}
+          />
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor="#707070"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
             style={styles.input}
           />
           <TextInput
             placeholder="Password"
             placeholderTextColor="#707070"
             secureTextEntry
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor="#707070"
+            value={password}
+            onChangeText={setPassword}
             style={styles.input}
           />
 
           <TouchableOpacity
             style={styles.continueBtn}
-            onPress={() => navigation.navigate('Home')}
+            onPress={handleSignup}
+            disabled={busy}
           >
-            <Text style={styles.continueBtnText}>Sign Up</Text>
+            {busy ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.continueBtnText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.loginRow}>
@@ -114,19 +149,19 @@ const styles = StyleSheet.create({
   // White cut-in wave that overlays on top of the blue
   wave: {
     position: 'absolute',
-    top: -80,        // adjust if you want the curve higher/lower
+    top: -80, // adjust if you want the curve higher/lower
     left: 0,
     width: width,
     height: 400,
-    tintColor: '#73C3D1', // important: white cut-in over blue
+    tintColor: '#73C3D1',
     zIndex: 1,
   },
 
   bottomContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,  // space below the wave
+    paddingTop: 20, // space below the wave
     position: 'relative',
-    zIndex: 2,       // above the wave
+    zIndex: 2, // above the wave
   },
   sectionTitle: {
     color: '#F8F7F4',
@@ -160,3 +195,10 @@ const styles = StyleSheet.create({
   loginCopy: { color: '#F8F7F4' },
   loginLink: { color: '#F8F7F4', fontWeight: '800', textDecorationLine: 'underline' },
 });
+
+
+
+
+
+
+

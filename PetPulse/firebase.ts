@@ -1,9 +1,11 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getApps, initializeApp } from 'firebase/app'; 
+import { getAuth } from 'firebase/auth'; 
+import { getFirestore } from 'firebase/firestore'; 
+import { getStorage } from 'firebase/storage'; 
+import { Platform } from 'react-native'; 
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'; 
 
-// Your Firebase config - replace with your own from Firebase Console
+// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCoNvg5j3figkBW41eK4tHqEqShSESZuWQ",
   authDomain: "petpulse-2d843.firebaseapp.com",
@@ -20,4 +22,3 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
- 

@@ -6,7 +6,7 @@ export const config = createConfig({
     colors: {
       blue: '#73C3D1',
       white: '#eceae7ff',
-      o: '#EE734A',
+      orange: '#EE734A',
       black: '#000000',
       text: '#1C1C1C',
     },
