@@ -1,3 +1,4 @@
+// screens/UserSettingsScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -9,11 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import { useNavigation } from '@react-navigation/native';
+import { logoutUser } from '../services/authService'; // <- direct logout
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +39,8 @@ export default function UserSettingsScreen() {
   const navigation = useNavigation<any>();
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 24;
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
   const [email, setEmail]       = useState('');
@@ -51,9 +57,26 @@ export default function UserSettingsScreen() {
     // TODO: Reset password flow here
   };
 
-  const onLogout = () => {
-    // TODO: Add real logout/auth clear here
-    navigation.navigate('Login');
+  const onLogout = async () => {
+    if (loggingOut) return;
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setLoggingOut(true);
+            await logoutUser(); // <- Firebase signOut(auth)
+            // Do NOT navigate; App.tsx onAuthStateChanged flips stacks
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Could not log out. Try again.');
+          } finally {
+            setLoggingOut(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -111,9 +134,15 @@ export default function UserSettingsScreen() {
               onPress={onLogout}
               style={[styles.row, { borderColor: colors.accent }]}
               accessibilityRole="button"
+              disabled={loggingOut}
             >
-              <Text style={[styles.cellLeft, { color: colors.accent }]}>LOG OUT</Text>
-              <Ionicons name="log-out-outline" size={18} color={colors.accent} />
+              <Text style={[styles.cellLeft, { color: colors.accent }]}>
+                {loggingOut ? 'LOGGING OUT…' : 'LOG OUT'}
+              </Text>
+              {loggingOut
+                ? <ActivityIndicator />
+                : <Ionicons name="log-out-outline" size={18} color={colors.accent} />
+              }
             </TouchableOpacity>
           </View>
 
@@ -123,6 +152,7 @@ export default function UserSettingsScreen() {
               activeOpacity={0.9}
               onPress={onSave}
               style={[styles.saveBtn, styles.cardShadow]}
+              disabled={loggingOut}
             >
               <Text style={styles.saveText}>Save Changes</Text>
             </TouchableOpacity>
