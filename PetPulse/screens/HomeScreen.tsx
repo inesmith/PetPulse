@@ -1,6 +1,14 @@
 // screens/HomeScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Button, Text, StyleSheet, Dimensions, ImageBackground, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Button,
+  Text,
+  StyleSheet,
+  Dimensions,
+  ImageBackground,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -8,7 +16,18 @@ import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
+  collection,
+  query,
+  orderBy,
+  limit as qLimit,
+  Timestamp,
+} from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +41,16 @@ const colors = {
 
 const TODAY_H = 60;
 
+function formatWhenShort(ts?: Timestamp) {
+  if (!ts) return '—';
+  const d = ts.toDate();
+  const optsTop: Intl.DateTimeFormatOptions = { weekday: 'short' };
+  const optsBottom: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+  return `${d.toLocaleDateString(undefined, optsTop).toUpperCase()}, ${d
+    .toLocaleDateString(undefined, optsBottom)
+    .toUpperCase()}`;
+}
+
 // --- helper: create users/{uid} if missing ---
 async function ensureUserDoc(uid: string, email?: string | null, displayName?: string | null) {
   const ref = doc(db, 'users', uid);
@@ -30,26 +59,30 @@ async function ensureUserDoc(uid: string, email?: string | null, displayName?: s
     const fallbackName =
       (displayName && displayName.trim()) ||
       (email ? email.split('@')[0] : 'User');
-    console.log('[ensureUserDoc] creating users doc for', uid, 'with name:', fallbackName);
     await setDoc(
       ref,
       {
         email: email ?? '',
         displayName: fallbackName,
-        username: fallbackName,           // <-- write username too (in case UI expects it)
+        username: fallbackName,
         createdAt: serverTimestamp(),
       },
       { merge: true }
     );
   } else {
-    const data = snap.data() as { displayName?: string; username?: string; email?: string } | undefined;
-    const currentName = (data?.displayName ?? data?.username ?? '').trim();
+    const data =
+      (snap.data() as { displayName?: string; username?: string; email?: string }) ||
+      {};
+    const currentName = (data.displayName ?? data.username ?? '').trim();
     if (!currentName) {
       const fallbackName =
         (displayName && displayName.trim()) ||
         (email ? email.split('@')[0] : 'User');
-      console.log('[ensureUserDoc] backfilling name for', uid, '->', fallbackName);
-      await setDoc(ref, { displayName: fallbackName, username: fallbackName }, { merge: true });
+      await setDoc(
+        ref,
+        { displayName: fallbackName, username: fallbackName },
+        { merge: true }
+      );
     }
   }
 }
@@ -61,47 +94,61 @@ export default function HomeScreen() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState<boolean>(true);
 
+  const [reminders, setReminders] = useState<
+    { id: string; title: string; when?: Timestamp }[]
+  >([]);
+
   useEffect(() => {
     let unsub: undefined | (() => void);
 
     (async () => {
-      if (!user?.uid) { setProfileName(null); setLoadingName(false); return; }
-
-      try {
-        // 1) make sure users/{uid} exists and has a name
-        await ensureUserDoc(user.uid, user.email ?? null, user.displayName ?? null);
-      } catch (e: any) {
-        console.warn('[ensureUserDoc] failed:', e?.message ?? e);
+      if (!user?.uid) {
+        setProfileName(null);
+        setLoadingName(false);
+        return;
       }
 
-      // 2) subscribe to users/{uid}
+      try {
+        await ensureUserDoc(user.uid, user.email ?? null, user.displayName ?? null);
+      } catch {}
+
       const ref = doc(db, 'users', user.uid);
       unsub = onSnapshot(
         ref,
         (snap) => {
           if (!snap.exists()) {
-            console.warn('[onSnapshot] users/{uid} missing even after ensureUserDoc');
             setProfileName(null);
             setLoadingName(false);
             return;
           }
           const data = snap.data() as { displayName?: string; username?: string } | undefined;
           const fromDb = (data?.displayName ?? data?.username ?? '').trim();
-          console.log('[onSnapshot] users data:', data);
           setProfileName(fromDb || null);
           setLoadingName(false);
         },
-        (err) => {
-          console.error('[onSnapshot] error:', err);
-          setLoadingName(false);
-        }
+        () => setLoadingName(false)
       );
     })();
 
-    return () => { if (unsub) unsub(); };
+    return () => {
+      if (unsub) unsub();
+    };
   }, [user?.uid]);
 
-  // ---- Greeting: DB (displayName/username) → auth.displayName → email handle ----
+  // listen to next 4 reminders
+  useEffect(() => {
+    if (!user?.uid) return;
+    const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
+    const q = query(col, orderBy('when', 'asc'), qLimit(4));
+    const unsub = onSnapshot(q, (snap) => {
+      const rows: any[] = [];
+      snap.forEach((d) => rows.push({ id: d.id, ...(d.data() as any) }));
+      setReminders(rows);
+    });
+    return unsub;
+  }, [user?.uid]);
+
+  // ---- Greeting ----
   const greetingName = useMemo(() => {
     const fromDb = (profileName ?? '').trim();
     const fromAuth = (user?.displayName ?? '').trim();
@@ -109,7 +156,7 @@ export default function HomeScreen() {
     return (fromDb || fromAuth || fallback).toUpperCase();
   }, [profileName, user?.displayName, user?.email]);
 
-  // ---- Today's date (e.g., "WED," and "27 JULY") ----
+  // ---- Today's date ----
   const { dayTop, dayBottom } = useMemo(() => {
     const now = new Date();
     const weekday = now.toLocaleDateString(undefined, { weekday: 'short' });
@@ -122,7 +169,10 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.White }]} edges={['left', 'right']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.White }]}
+      edges={['left', 'right']}
+    >
       <View style={{ flex: 1, backgroundColor: colors.White }}>
         {/* Welcome text */}
         <View style={styles.headerTextWrap}>
@@ -156,10 +206,29 @@ export default function HomeScreen() {
         {/* Reminders */}
         <Text style={styles.sectionLabel}>REMINDERS</Text>
         <View style={styles.remindersRow}>
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
-          <View style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]} />
+          {reminders.length === 0 ? (
+            <View style={[styles.reminderEmptyWrap, styles.shadow]}>
+              <Text style={styles.noRemindersText}>No upcoming reminders</Text>
+            </View>
+          ) : (
+            reminders.map((r) => (
+              <View
+                key={r.id}
+                style={[
+                  styles.reminderBox,
+                  styles.shadow,
+                  { backgroundColor: '#e9e8e6ff', padding: 8 },
+                ]}
+              >
+                <Text style={{ fontWeight: '900', color: colors.blue }} numberOfLines={2}>
+                  {r.title}
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 11, color: '#6E6E6E' }}>
+                  {formatWhenShort(r.when)}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Steps */}
@@ -176,7 +245,9 @@ export default function HomeScreen() {
             imageStyle={{ borderRadius: 16, opacity: 0.25 }}
             resizeMode="cover"
           >
-            <Text style={[styles.distanceLabel, { color: colors.accent }]}>DISTANCE: 2,5 km</Text>
+            <Text style={[styles.distanceLabel, { color: colors.accent }]}>
+              DISTANCE: 2,5 km
+            </Text>
           </ImageBackground>
         </View>
 
@@ -246,8 +317,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     letterSpacing: 0.2,
   },
-  remindersRow: { flexDirection: 'row', gap: 14, paddingHorizontal: 22, marginTop: 10 },
-  reminderBox: { flex: 1, height: 90, width: 90, borderRadius: 16 },
+
+  remindersRow: {
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 22,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+
+  // Each filled reminder card
+  reminderBox: {
+    flexBasis: (width - 22 * 2 - 14 * 3) / 4,
+    height: 90,
+    borderRadius: 16,
+  },
+
+  // Empty state (one centered card)
+  reminderEmptyWrap: {
+    flexBasis: (width - 22 * 2 - 14 * 3) / 4,
+    height: 90,
+    borderRadius: 16,
+    backgroundColor: '#e9e8e6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noRemindersText: {
+    color: '#EE734A',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
   stepsCard: {
     marginTop: 20,

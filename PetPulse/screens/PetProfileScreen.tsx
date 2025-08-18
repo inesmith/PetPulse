@@ -1,4 +1,3 @@
-// screens/PetProfileScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -11,6 +10,9 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +21,17 @@ import BottomNavBar from '../components/BottomNavBar';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  orderBy,
+  limit as qLimit,
+  addDoc,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +76,15 @@ function ageFromDob(dob?: string): string | null {
   if (m < 0 || (m === 0 && now.getDate() < d.getDate())) years--;
   return String(Math.max(0, years));
 }
+function formatWhenShort(ts?: Timestamp) {
+  if (!ts) return '—';
+  const d = ts.toDate();
+  const optsTop: Intl.DateTimeFormatOptions = { weekday: 'short' };
+  const optsBottom: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+  return `${d.toLocaleDateString(undefined, optsTop).toUpperCase()}, ${d
+    .toLocaleDateString(undefined, optsBottom)
+    .toUpperCase()}`;
+}
 
 export default function PetProfileScreen() {
   const nav = useNavigation<any>();
@@ -75,6 +96,16 @@ export default function PetProfileScreen() {
   const [pet, setPet] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [notesLocal, setNotesLocal] = useState('');
+
+  // reminders
+  const [reminders, setReminders] = useState<
+    { id: string; title: string; when?: Timestamp; notes?: string }[]
+  >([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [rTitle, setRTitle] = useState('');
+  const [rDate, setRDate] = useState('');  // e.g. 2025-08-18 14:30
+  const [rNotes, setRNotes] = useState('');
+  const [savingReminder, setSavingReminder] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -91,7 +122,6 @@ export default function PetProfileScreen() {
           return;
         }
         const data = snap.data() || null;
-        console.log('[PetProfile] pet snapshot:', JSON.stringify(data));
         setPet(data);
         setNotesLocal((data?.notes ?? '').toString());
         setLoading(false);
@@ -104,10 +134,62 @@ export default function PetProfileScreen() {
     return unsub;
   }, [user?.uid]);
 
+  // subscribe to upcoming reminders (top 4 by when)
+  useEffect(() => {
+    if (!user?.uid) return;
+    const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
+    const q = query(col, orderBy('when', 'asc'), qLimit(4));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows: any[] = [];
+        snap.forEach((d) => rows.push({ id: d.id, ...(d.data() as any) }));
+        setReminders(rows);
+      },
+      (err) => console.warn('reminders onSnapshot error:', err)
+    );
+    return unsub;
+  }, [user?.uid]);
+
   const petName  = useMemo(() => toTitle(pet?.name ?? ''), [pet?.name]);
   const petBreed = useMemo(() => toTitle(pet?.breed ?? ''), [pet?.breed]);
   const dobText  = useMemo(() => formatDobForCard(pet?.dob), [pet?.dob]);
   const ageText  = useMemo(() => pet?.age || ageFromDob(pet?.dob) || '', [pet?.age, pet?.dob]);
+
+  async function saveReminder() {
+    if (!user?.uid) return;
+    const title = rTitle.trim();
+    if (!title) {
+      Alert.alert('Missing info', 'Please add a title for the reminder.');
+      return;
+    }
+    let when: Date | null = null;
+    if (rDate.trim()) {
+      // accept “YYYY-MM-DD HH:mm” or “YYYY-MM-DD”
+      const s = rDate.trim().length <= 10 ? `${rDate.trim()} 09:00` : rDate.trim();
+      const candidate = new Date(s.replace(' ', 'T'));
+      if (!isNaN(+candidate)) when = candidate;
+    }
+    setSavingReminder(true);
+    try {
+      const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
+      await addDoc(col, {
+        title,
+        notes: rNotes.trim(),
+        when: when ? Timestamp.fromDate(when) : null,
+        done: false,
+        createdAt: serverTimestamp(),
+      });
+      setOpenModal(false);
+      setRTitle('');
+      setRDate('');
+      setRNotes('');
+    } catch (e: any) {
+      Alert.alert('Could not save', e?.message ?? 'Please try again.');
+    } finally {
+      setSavingReminder(false);
+    }
+  }
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left', 'right']}>
@@ -179,17 +261,26 @@ export default function PetProfileScreen() {
             {/* Divider */}
             <View style={[styles.divider, { borderBottomColor: colors.accent }]} />
 
-            {/* Upcoming reminders (placeholder UI) */}
+            {/* Upcoming reminders */}
             <Text style={[styles.sectionTitle, { color: '#6E6E6E' }]}>UPCOMING REMINDERS</Text>
             <View style={styles.remindersRow}>
-              {[1,2,3].map((id) => (
+              {reminders.map((r) => (
                 <View
-                  key={id}
-                  style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]}
-                />
+                  key={r.id}
+                  style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff', padding: 8 }]}
+                >
+                  <Text style={{ fontWeight: '900', color: colors.blue }} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={{ marginTop: 4, fontSize: 11, color: '#6E6E6E' }}>
+                    {formatWhenShort(r.when)}
+                  </Text>
+                </View>
               ))}
+
+              {/* Add Reminder tile (always last) */}
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => setOpenModal(true)}
                 activeOpacity={0.85}
                 style={[
                   styles.reminderBox,
@@ -202,7 +293,7 @@ export default function PetProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Notes (local display; persisted from settings) */}
+            {/* Notes */}
             <View style={[styles.notesCard, { borderColor: colors.accent }]}>
               <TextInput
                 value={notesLocal}
@@ -227,6 +318,62 @@ export default function PetProfileScreen() {
 
         <BottomNavBar />
       </View>
+
+      {/* --- Add Reminder Modal --- */}
+      <Modal
+        visible={openModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenModal(false)}
+      >
+        <View style={m.overlay}>
+          <View style={[m.card, styles.shadow]}>
+            <Text style={m.title}>Create Reminder</Text>
+
+            <Text style={m.label}>Title</Text>
+            <TextInput
+              value={rTitle}
+              onChangeText={setRTitle}
+              placeholder="Vet appointment"
+              placeholderTextColor="#8A8A8A"
+              style={m.input}
+            />
+
+            <Text style={m.label}>Date & Time</Text>
+            <TextInput
+              value={rDate}
+              onChangeText={setRDate}
+              placeholder="YYYY-MM-DD HH:mm (24h)"
+              placeholderTextColor="#8A8A8A"
+              autoCapitalize="none"
+              style={m.input}
+            />
+
+            <Text style={m.label}>Notes (optional)</Text>
+            <TextInput
+              value={rNotes}
+              onChangeText={setRNotes}
+              placeholder="Bring vaccination card"
+              placeholderTextColor="#8A8A8A"
+              style={[m.input, { height: 80 }]}
+              multiline
+            />
+
+            <View style={m.row}>
+              <Pressable style={[m.btn, { backgroundColor: '#e9e8e6ff' }]} onPress={() => setOpenModal(false)}>
+                <Text style={[m.btnText, { color: '#6E6E6E' }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={savingReminder}
+                onPress={saveReminder}
+                style={[m.btn, { backgroundColor: colors.blue, opacity: savingReminder ? 0.6 : 1 }]}
+              >
+                <Text style={[m.btnText, { color: colors.white }]}>{savingReminder ? 'Saving…' : 'Save'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -395,4 +542,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8A8A8A',
   },
+});
+
+/* --- Modal styles --- */
+const m = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  title: { fontWeight: '900', fontSize: 18, marginBottom: 12, color: '#1C1C1C' },
+  label: { fontWeight: '800', fontSize: 12, color: '#6E6E6E', marginTop: 10, marginBottom: 6 },
+  input: {
+    borderWidth: 1.5,
+    borderColor: '#EE734A',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontWeight: '700',
+    color: '#1C1C1C',
+  },
+  row: { flexDirection: 'row', gap: 10, marginTop: 16, justifyContent: 'flex-end' },
+  btn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
+  btnText: { fontWeight: '900' },
 });
