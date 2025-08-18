@@ -39,6 +39,9 @@ export default function RewardsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
       <View style={{ flex: 1, backgroundColor: colors.white }}>
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }}>
+
+          <View style={styles.blob} pointerEvents="none" />
+          
           {/* Header */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.welcome}>HEY LOOK,{'\n'}YOU'VE MADE IT</Text>
@@ -166,5 +169,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
+  },
+   blob: {
+    position: 'absolute',
+    left: -75,
+    top: -10,
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: "#73C3D7",
+    alignSelf: 'flex-start',
   },
 });

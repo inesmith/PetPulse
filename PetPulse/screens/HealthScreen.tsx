@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
+import PetNav from '../components/PetNav';
 
 const { width } = Dimensions.get('window');
 
@@ -85,6 +86,12 @@ export default function HealthScreen() {
             contentContainerStyle={{ paddingBottom: padBottom }}
             keyboardShouldPersistTaps="handled"
           >
+
+            {/* Pet Nav */}
+      <View style={{ paddingHorizontal: 22, marginTop: 200}}>
+        <PetNav />
+      </View>
+
             {/* Header (name at right) */}
             <View style={styles.headerTopRow}>
               <View />
@@ -284,7 +291,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   headerTopRow: {
-    marginTop: 125,
+    marginTop: -75,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',

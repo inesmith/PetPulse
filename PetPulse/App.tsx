@@ -20,6 +20,9 @@ import HealthScreen from './screens/HealthScreen';
 import UserSettingsScreen from './screens/UserSettingsScreen';
 import PetSettingsScreen from './screens/PetSettingsScreen';
 
+import AddPetScreen from './screens/AddPetScreen';
+
+
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
@@ -37,6 +40,7 @@ function RootNavigator() {
           <Stack.Screen name="Health" component={HealthScreen} />
           <Stack.Screen name="UserSettings" component={UserSettingsScreen} />
           <Stack.Screen name="PetSettings" component={PetSettingsScreen} />
+          <Stack.Screen name="AddPet" component={AddPetScreen} />
         </>
       ) : (
         <>

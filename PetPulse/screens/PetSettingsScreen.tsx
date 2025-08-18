@@ -39,7 +39,7 @@ const colors = {
 const NAV_H = 64;
 const NAV_MARGIN = 8;
 const ROW_R = 18;
-const PHOTO_SIDE = 96;
+const PHOTO_SIDE = 80;
 
 export default function PetSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -191,7 +191,7 @@ export default function PetSettingsScreen() {
           </View>
 
           {/* --- Photo Section (circle is clickable) --- */}
-          <Text style={styles.sectionLabel}>PHOTO</Text>
+                <View style={styles.blob} pointerEvents="none" />
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -464,10 +464,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.grey,
     borderWidth: 1.5,
     borderColor: colors.accent,
-    alignSelf: 'flex-start',
+    marginLeft: 10,
+    marginTop: -105,
   },
   photoImg: { width: '100%', height: '100%' },
-  photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  photoPlaceholder: { alignItems: 'center', justifyContent: 'center', },
 
   pillWrap: { marginTop: 24, paddingHorizontal: 22 },
   pill: {
@@ -484,6 +485,17 @@ const styles = StyleSheet.create({
 
   sectionLabel: { marginTop: 18, color: '#6E6E6E', fontWeight: '900', paddingHorizontal: 22, letterSpacing: 0.2, marginBottom: 10, },
   sectionPad: { paddingHorizontal: 22, marginTop: 0 },
+
+  blob: {
+    position: 'absolute',
+    left: -75,
+    top: -10,
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: "#73C3D7",
+    alignSelf: 'flex-start',
+  },
 
   row: {
     minHeight: 58,

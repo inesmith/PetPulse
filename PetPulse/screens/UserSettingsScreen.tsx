@@ -269,7 +269,10 @@ export default function UserSettingsScreen() {
         keyboardVerticalOffset={80}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-          
+
+          {/* Blob */}
+          <View style={styles.blob} pointerEvents="none" />
+
           {/* Header */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerName}>
@@ -503,6 +506,17 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.3,
+  },
+
+  blob: {
+    position: 'absolute',
+    left: -75,
+    top: -10,
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: "#73C3D7",
+    alignSelf: 'flex-start',
   },
 
   cardShadow: {

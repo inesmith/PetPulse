@@ -14,6 +14,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
+import PetNav from '../components/PetNav'; // 👈 import your PetNav
+
 
 const { width } = Dimensions.get('window');
 const TODAY_H = 60; // keep Today pill height consistent with design
@@ -52,6 +54,11 @@ export default function ActivitiesScreen() {
           contentContainerStyle={{ paddingBottom: padBottom }}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Pet Nav */}
+          <View style={{ paddingHorizontal: 22, marginTop: 200}}>
+            <PetNav />
+          </View>
+
           {/* Top welcome */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.welcome}> LINA LARDI'S{'\n'}ACTIVITIES</Text>
@@ -151,7 +158,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   headerTextWrap: {
-    marginTop: 125,
+    marginTop: -75,
     alignItems: 'flex-end',
     paddingHorizontal: 22,
   },
