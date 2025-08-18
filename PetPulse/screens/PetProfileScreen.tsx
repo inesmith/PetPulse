@@ -21,19 +21,10 @@ import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { Timestamp, onSnapshot, addDoc, serverTimestamp, query, where, orderBy, limit as qLimit } from 'firebase/firestore';
+import { usePets } from '../context/PetContext';
+import { petDoc, petCol } from '../src/utils/pets';
 import { db } from '../firebase';
-import {
-  doc,
-  onSnapshot,
-  collection,
-  query,
-  orderBy,
-  limit as qLimit,
-  addDoc,
-  serverTimestamp,
-  Timestamp,
-  where,
-} from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -92,6 +83,7 @@ export default function PetProfileScreen() {
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { selectedPet, selectedPetId = 'primary' } = usePets();
 
   const contentBottomPad = NAV_HEIGHT + Math.max(insets.bottom, NAV_MARGIN) + 16;
 
@@ -109,15 +101,14 @@ export default function PetProfileScreen() {
   const [rNotes, setRNotes] = useState('');
   const [savingReminder, setSavingReminder] = useState(false);
 
+  // ---- Load the selected pet ----
   useEffect(() => {
     if (!user?.uid) return;
-    const ref = doc(db, 'users', user.uid, 'pets', 'primary');
-
+    const ref = petDoc(user.uid, selectedPetId ?? 'primary');
     const unsub = onSnapshot(
       ref,
       (snap) => {
         if (!snap.exists()) {
-          console.log('Pet doc not found at users/{uid}/pets/primary');
           setPet(null);
           setNotesLocal('');
           setLoading(false);
@@ -134,19 +125,13 @@ export default function PetProfileScreen() {
       }
     );
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, selectedPetId]);
 
-  // subscribe to upcoming reminders (top 4 by when)
+  // ---- Upcoming reminders for selected pet ----
   useEffect(() => {
     if (!user?.uid) return;
-    const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
-
-    // Option A: keep *all* reminders, oldest-first (no index needed)
-    // const qy = query(col, orderBy('when', 'asc'), qLimit(4));
-
-    // Option B (recommended): only *future* reminders (may ask you to create an index once)
+    const col = petCol(user.uid, selectedPetId ?? 'primary', 'reminders');
     const qy = query(col, where('when', '>=', Timestamp.now()), orderBy('when', 'asc'), qLimit(4));
-
     const unsub = onSnapshot(
       qy,
       (snap) => {
@@ -157,10 +142,10 @@ export default function PetProfileScreen() {
       (err) => console.warn('reminders onSnapshot error:', err)
     );
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, selectedPetId]);
 
-  const petName  = useMemo(() => toTitle(pet?.name ?? ''), [pet?.name]);
-  const petBreed = useMemo(() => toTitle(pet?.breed ?? ''), [pet?.breed]);
+  const petName  = useMemo(() => toTitle(pet?.name ?? selectedPet?.name ?? ''), [pet?.name, selectedPet?.name]);
+  const petBreed = useMemo(() => toTitle(pet?.breed ?? selectedPet?.breed ?? ''), [pet?.breed, selectedPet?.breed]);
   const dobText  = useMemo(() => formatDobForCard(pet?.dob), [pet?.dob]);
   const ageText  = useMemo(() => pet?.age || ageFromDob(pet?.dob) || '', [pet?.age, pet?.dob]);
 
@@ -173,15 +158,14 @@ export default function PetProfileScreen() {
     }
     let when: Date | null = null;
     if (rDate.trim()) {
-      // accept “YYYY-MM-DD HH:mm” or “YYYY-MM-DD”
       const raw = rDate.trim();
-      const isoish = raw.length <= 10 ? `${raw}T12:00` : raw.replace(' ', 'T'); // noon default to reduce TZ surprises
+      const isoish = raw.length <= 10 ? `${raw}T12:00` : raw.replace(' ', 'T');
       const candidate = new Date(isoish);
       if (!isNaN(+candidate)) when = candidate;
     }
     setSavingReminder(true);
     try {
-      const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
+      const col = petCol(user.uid, selectedPetId ?? 'primary', 'reminders');
       await addDoc(col, {
         title,
         notes: rNotes.trim(),
@@ -516,18 +500,16 @@ const styles = StyleSheet.create({
   sectionTitle: { marginTop: 14, paddingHorizontal: 22, fontWeight: '900', fontSize: 14, letterSpacing: 0.2 },
 
   remindersRow: {
-    marginTop: 20,
-    paddingHorizontal: 22,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
+    gap: 14,
+    paddingHorizontal: 22,
+    marginTop: 10,
     flexWrap: 'wrap',
   },
   reminderBox: {
     width: 100,
     height: 100,
     borderRadius: 16,
-    backgroundColor: '#e9e8e6ff',
   },
   addText: {
     fontSize: 9,

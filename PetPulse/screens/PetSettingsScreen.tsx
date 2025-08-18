@@ -1,29 +1,15 @@
 // screens/PetSettingsScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Image,
-  Modal,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TextInput, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Pressable, } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { config } from '../gluestack-ui.config';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadPetImage } from '../services/storage';
+import { usePets } from '../context/PetContext';
+import { onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { petDoc } from '../src/utils/pets';
 
 const { width } = Dimensions.get('window');
 
@@ -44,7 +30,13 @@ const PHOTO_SIDE = 80;
 export default function PetSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useAuth();
+  const { selectedPet } = usePets();
+
+  // Use route param if provided, otherwise the globally selected pet, else fallback to 'primary'
+  const petId: string = route.params?.petId || selectedPet?.id || 'primary';
+
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 24;
 
   const [loading, setLoading] = useState(true);
@@ -71,10 +63,11 @@ export default function PetSettingsScreen() {
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
 
-  // Load existing pet
+  // Load existing pet (LISTEN to the active petId)
   useEffect(() => {
     if (!user?.uid) return;
-    const ref = doc(db, 'users', user.uid, 'pets', 'primary');
+    const ref = petDoc(user.uid, petId);
+
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -87,9 +80,7 @@ export default function PetSettingsScreen() {
         setSize((data.size ?? '') as any);
         setColour((data.colour ?? '').toString());
         setGender((data.gender ?? '') as any);
-        setHasChip(
-          data.hasChip === true ? 'Yes' : data.hasChip === false ? 'No' : ''
-        );
+        setHasChip(data.hasChip === true ? 'Yes' : data.hasChip === false ? 'No' : '');
         setChipDetails((data.chipDetails ?? '').toString());
         setNotes((data.notes ?? '').toString());
         setPhotoURL((data.photoURL ?? null) || null);
@@ -102,12 +93,12 @@ export default function PetSettingsScreen() {
       }
     );
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, petId]);
 
   const headerName = useMemo(() => (name || 'Your Pet').toUpperCase(), [name]);
   const headerSub  = useMemo(() => (breed || '').toUpperCase(), [breed]);
 
-  // ✅ UPDATED to new Expo ImagePicker API (removes deprecation warning)
+  // ✅ New Expo ImagePicker API usage
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
@@ -115,11 +106,11 @@ export default function PetSettingsScreen() {
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], // ← changed
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
+  mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ use the enum
+  allowsEditing: true,
+  aspect: [1, 1],
+  quality: 0.85,
+});
     if (!res.canceled && res.assets?.[0]?.uri) {
       setPhotoLocal(res.assets[0].uri);
     }
@@ -154,13 +145,13 @@ export default function PetSettingsScreen() {
       // Upload new image if selected
       let photoFields: Record<string, any> = {};
       if (photoLocal) {
-        const { url, path } = await uploadPetImage(user.uid, 'primary', photoLocal);
+        const { url, path } = await uploadPetImage(user.uid, petId, photoLocal);
         photoFields = { photoURL: url, photoPath: path };
         setPhotoURL(url);
       }
 
       await setDoc(
-        doc(db, 'users', user.uid, 'pets', 'primary'),
+        petDoc(user.uid, petId),
         { ...payload, ...photoFields },
         { merge: true }
       );
@@ -191,7 +182,7 @@ export default function PetSettingsScreen() {
           </View>
 
           {/* --- Photo Section (circle is clickable) --- */}
-                <View style={styles.blob} pointerEvents="none" />
+          <View style={styles.blob} pointerEvents="none" />
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -468,7 +459,7 @@ const styles = StyleSheet.create({
     marginTop: -105,
   },
   photoImg: { width: '100%', height: '100%' },
-  photoPlaceholder: { alignItems: 'center', justifyContent: 'center', },
+  photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
 
   pillWrap: { marginTop: 24, paddingHorizontal: 22 },
   pill: {
@@ -483,7 +474,14 @@ const styles = StyleSheet.create({
   },
   pillText: { fontWeight: '900', fontSize: 18, letterSpacing: 0.3 },
 
-  sectionLabel: { marginTop: 18, color: '#6E6E6E', fontWeight: '900', paddingHorizontal: 22, letterSpacing: 0.2, marginBottom: 10, },
+  sectionLabel: {
+    marginTop: 18,
+    color: '#6E6E6E',
+    fontWeight: '900',
+    paddingHorizontal: 22,
+    letterSpacing: 0.2,
+    marginBottom: 10,
+  },
   sectionPad: { paddingHorizontal: 22, marginTop: 0 },
 
   blob: {
@@ -493,7 +491,7 @@ const styles = StyleSheet.create({
     width: width * 0.6,
     height: width * 0.6,
     borderBottomRightRadius: width,
-    backgroundColor: "#73C3D7",
+    backgroundColor: '#73C3D7',
     alignSelf: 'flex-start',
   },
 
