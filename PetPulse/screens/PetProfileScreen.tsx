@@ -283,10 +283,10 @@ export default function PetProfileScreen() {
                   key={r.id}
                   style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff', padding: 8 }]}
                 >
-                  <Text style={{ fontWeight: '900', color: colors.blue }} numberOfLines={2}>
+                  <Text style={{ fontWeight: '900', color: colors.blue, fontSize: 11, marginTop: 6 }} numberOfLines={2}>
                     {r.title}
                   </Text>
-                  <Text style={{ marginTop: 4, fontSize: 11, color: '#6E6E6E' }}>
+                  <Text style={{ marginTop: 4, fontSize: 10, color: '#6E6E6E' }}>
                     {formatWhenShort(r.when)}
                   </Text>
                 </View>
@@ -524,8 +524,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   reminderBox: {
-    width: (width - 70) / 4,
-    height: 90,
+    width: 100,
+    height: 100,
     borderRadius: 16,
     backgroundColor: '#e9e8e6ff',
   },

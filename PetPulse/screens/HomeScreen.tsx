@@ -1,5 +1,5 @@
 // screens/HomeScreen.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Button,
@@ -8,12 +8,14 @@ import {
   Dimensions,
   ImageBackground,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
+import PetNav from '../components/PetNav'; // 👈 add this
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import {
@@ -41,7 +43,16 @@ const colors = {
 
 const TODAY_H = 60;
 
-function formatWhenShort(ts?: Timestamp) {
+type ReminderItem = {
+  id: string;
+  petId: string;
+  petName: string;
+  petPhotoURL?: string | null;
+  title: string;
+  when?: Timestamp | null;
+};
+
+function formatWhenShort(ts?: Timestamp | null) {
   if (!ts) return '—';
   const d = ts.toDate();
   const optsTop: Intl.DateTimeFormatOptions = { weekday: 'short' };
@@ -94,12 +105,18 @@ export default function HomeScreen() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState<boolean>(true);
 
-  const [reminders, setReminders] = useState<
-    { id: string; title: string; when?: Timestamp }[]
-  >([]);
+  const [remindersRaw, setRemindersRaw] = useState<ReminderItem[]>([]);
+  const childUnsubsRef = useRef<(() => void)[]>([]);
+  const [nowTick, setNowTick] = useState<number>(Date.now()); // re-render clock
+
+  // keep UI “live” so past reminders drop off without db changes
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
-    let unsub: undefined | (() => void);
+    let unsubUser: undefined | (() => void);
 
     (async () => {
       if (!user?.uid) {
@@ -113,7 +130,7 @@ export default function HomeScreen() {
       } catch {}
 
       const ref = doc(db, 'users', user.uid);
-      unsub = onSnapshot(
+      unsubUser = onSnapshot(
         ref,
         (snap) => {
           if (!snap.exists()) {
@@ -131,22 +148,108 @@ export default function HomeScreen() {
     })();
 
     return () => {
-      if (unsub) unsub();
+      if (unsubUser) unsubUser();
     };
   }, [user?.uid]);
 
-  // listen to next 4 reminders
+  // --- Listen to ALL pets and collect their upcoming reminders (merged) ---
   useEffect(() => {
+    // cleanup any child listeners from prior runs
+    childUnsubsRef.current.forEach((u) => u());
+    childUnsubsRef.current = [];
+    setRemindersRaw([]);
+
     if (!user?.uid) return;
-    const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
-    const q = query(col, orderBy('when', 'asc'), qLimit(4));
-    const unsub = onSnapshot(q, (snap) => {
-      const rows: any[] = [];
-      snap.forEach((d) => rows.push({ id: d.id, ...(d.data() as any) }));
-      setReminders(rows);
-    });
-    return unsub;
+
+    const petsCol = collection(db, 'users', user.uid, 'pets');
+    const unsubPets = onSnapshot(
+      petsCol,
+      (petsSnap) => {
+        // when pet list changes, reset listeners
+        childUnsubsRef.current.forEach((u) => u());
+        childUnsubsRef.current = [];
+        setRemindersRaw([]);
+
+        const nextChildUnsubs: (() => void)[] = [];
+
+        petsSnap.forEach((petDoc) => {
+          const petId = petDoc.id;
+          const petData = (petDoc.data() || {}) as { name?: string; photoURL?: string | null };
+          const petName = (petData.name || petId).toString();
+          const petPhotoURL = petData.photoURL ?? null;
+
+          const remCol = collection(db, 'users', user.uid, 'pets', petId, 'reminders');
+          const qy = query(remCol, orderBy('when', 'asc'), qLimit(6));
+
+          const unsubRem = onSnapshot(
+            qy,
+            (remSnap) => {
+              // remove existing reminders for this pet, then add fresh ones
+              setRemindersRaw((prev) => {
+                const filtered = prev.filter((r) => r.petId !== petId);
+                const rows: ReminderItem[] = remSnap.docs.map((d) => {
+                  const data = d.data() as any;
+                  return {
+                    id: d.id,
+                    petId,
+                    petName,
+                    petPhotoURL,
+                    title: data.title ?? '',
+                    when: data.when ?? null,
+                  };
+                });
+
+                // merge & sort by 'when'
+                const merged = [...filtered, ...rows].sort((a, b) => {
+                  const ta = a.when ? a.when.toMillis() : Number.MAX_SAFE_INTEGER;
+                  const tb = b.when ? b.when.toMillis() : Number.MAX_SAFE_INTEGER;
+                  return ta - tb;
+                });
+
+                return merged;
+              });
+            },
+            () => {
+              // on error, just drop this pet's reminders
+              setRemindersRaw((prev) => prev.filter((r) => r.petId !== petId));
+            }
+          );
+
+          nextChildUnsubs.push(unsubRem);
+        });
+
+        childUnsubsRef.current = nextChildUnsubs;
+      },
+      () => {
+        // on error, clear children listeners
+        childUnsubsRef.current.forEach((u) => u());
+        childUnsubsRef.current = [];
+      }
+    );
+
+    return () => {
+      // cleanup on unmount / uid change
+      if (unsubPets) unsubPets();
+      childUnsubsRef.current.forEach((u) => u());
+      childUnsubsRef.current = [];
+    };
   }, [user?.uid]);
+
+  // Filter OUT past-due reminders (do not show anything strictly before "now")
+  const visibleReminders = useMemo(() => {
+    const nowMs = nowTick;
+    const future = remindersRaw.filter((r) => {
+      if (!r.when) return true; // keep undated reminders
+      return r.when.toMillis() >= nowMs;
+    });
+    return future
+      .sort((a, b) => {
+        const ta = a.when ? a.when.toMillis() : Number.MAX_SAFE_INTEGER;
+        const tb = b.when ? b.when.toMillis() : Number.MAX_SAFE_INTEGER;
+        return ta - tb;
+      })
+      .slice(0, 8);
+  }, [remindersRaw, nowTick]);
 
   // ---- Greeting ----
   const greetingName = useMemo(() => {
@@ -182,6 +285,11 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* 👇 Pet selector nav */}
+        <View style={{ paddingHorizontal: 22, marginTop: 16 }}>
+          <PetNav />
+        </View>
+
         {/* Today row: Today card + Settings square */}
         <View style={styles.todayWrap}>
           <View style={styles.todayRow}>
@@ -206,24 +314,42 @@ export default function HomeScreen() {
         {/* Reminders */}
         <Text style={styles.sectionLabel}>REMINDERS</Text>
         <View style={styles.remindersRow}>
-          {reminders.length === 0 ? (
+          {visibleReminders.length === 0 ? (
             <View style={[styles.reminderEmptyWrap, styles.shadow]}>
               <Text style={styles.noRemindersText}>No upcoming reminders</Text>
             </View>
           ) : (
-            reminders.map((r) => (
+            visibleReminders.map((r) => (
               <View
-                key={r.id}
+                key={`${r.petId}-${r.id}`}
                 style={[
                   styles.reminderBox,
                   styles.shadow,
                   { backgroundColor: '#e9e8e6ff', padding: 8 },
                 ]}
               >
-                <Text style={{ fontWeight: '900', color: colors.blue }} numberOfLines={2}>
+                {/* pet avatar circle */}
+                {r.petPhotoURL ? (
+                  <Image source={{ uri: r.petPhotoURL }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarFallback]}>
+                    <Text style={styles.avatarFallbackText}>
+                      {(r.petName || '?')
+                        .split(' ')
+                        .map((w) => w[0])
+                        .filter(Boolean)
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+
+                {/* title + date */}
+                <Text style={{ fontWeight: '900', color: colors.blue, fontSize: 11, marginTop: 6 }} numberOfLines={2}>
                   {r.title}
                 </Text>
-                <Text style={{ marginTop: 4, fontSize: 11, color: '#6E6E6E' }}>
+                <Text style={{ marginTop: 4, fontSize: 10, color: '#6E6E6E' }}>
                   {formatWhenShort(r.when)}
                 </Text>
               </View>
@@ -251,17 +377,14 @@ export default function HomeScreen() {
           </ImageBackground>
         </View>
 
-        {/* Sign out button */}
-        <View style={{ marginTop: 20, marginHorizontal: 22 }}>
-          <Button title="Sign Out" color={colors.accent} onPress={logout} />
-        </View>
-      </View>
-
       {/* Floating nav */}
       <BottomNavBar />
+      </View>
     </SafeAreaView>
   );
 }
+
+const AVATAR = 30;
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -278,7 +401,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
 
-  todayWrap: { marginTop: 55, paddingHorizontal: 22 },
+  todayWrap: { marginTop: 24, paddingHorizontal: 22 }, // tightened since PetNav is above
   todayRow: { alignSelf: 'flex-end', flexDirection: 'row', gap: 6 },
   todayCard: {
     height: TODAY_H,
@@ -311,7 +434,7 @@ const styles = StyleSheet.create({
   todayRightBottom: { color: '#777', fontSize: 12, lineHeight: 14, fontWeight: '700' },
 
   sectionLabel: {
-    marginTop: 45,
+    marginTop: 50,
     color: '#6E6E6E',
     fontWeight: '800',
     paddingHorizontal: 22,
@@ -326,14 +449,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
 
-  // Each filled reminder card
   reminderBox: {
-    flexBasis: (width - 22 * 2 - 14 * 3) / 4,
-    height: 90,
+    width: 100,
+    height: 100,
     borderRadius: 16,
   },
 
-  // Empty state (one centered card)
   reminderEmptyWrap: {
     flexBasis: (width - 22 * 2 - 14 * 3) / 4,
     height: 90,
@@ -347,6 +468,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+  },
+
+  avatar: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    backgroundColor: '#ddd',
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0e0e0',
+  },
+  avatarFallbackText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#555',
   },
 
   stepsCard: {
@@ -371,6 +509,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     overflow: 'hidden',
   },
-  mapImg: { width: '100%', height: 250, justifyContent: 'flex-end', padding: 12 },
-  distanceLabel: { fontWeight: '900', fontSize: 13 },
+  mapImg: { width: '100%', height: 250, justifyContent: 'center', padding: 12 },
+  distanceLabel: { fontWeight: '900', fontSize: 13, marginTop: 210 },
 });

@@ -1,126 +1,248 @@
-// components/PetNav.tsx
-import React, { useMemo, useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Animated,
+  Easing,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { usePets } from '../context/PetContext';
-import { config } from '../gluestack-ui.config';
 
-const colors = {
-  blue:   (config as any)?.theme?.colors?.blue  ?? '#73C3D1',
-  white:  (config as any)?.theme?.colors?.white ?? '#F8F7F4',
-  accent: (config as any)?.theme?.colors?.o     ?? '#EE734A',
-  text:   (config as any)?.theme?.colors?.text  ?? '#1C1C1C',
-};
+const { width } = Dimensions.get('window');
 
-const AVATAR_SIZE = 44;
+const TEAL = '#73C3D1';
+const BG   = '#F8F7F4';
+const GREY = '#E6E6E6';
+const TXT  = '#1C1C1C';
+
+const AVATAR = 48;             // circle size (collapsed top circle)
+const STRIP_AVATAR = 54;       // circle size inside expanded strip
+const STRIP_H = 100;            // expanded strip height
 
 export default function PetNav() {
-  const { pets, selectedPet, setSelectedPetId, loadingPets } = usePets();
-  const [open, setOpen] = useState(false);
   const nav = useNavigation<any>();
+  const { pets, selectedPetId, setSelectedPetId } = usePets();
+  const [open, setOpen] = useState(false);
 
-  const activeThumb = useMemo(() => selectedPet?.photoURL ?? null, [selectedPet?.photoURL]);
+  const selected = useMemo(
+    () => pets.find(p => p.id === selectedPetId) ?? pets[0] ?? null,
+    [pets, selectedPetId]
+  );
+
+  // simple open/close animation
+  const anim = useRef(new Animated.Value(0)).current;
+  const toggle = () => {
+    setOpen((o) => {
+      Animated.timing(anim, {
+        toValue: o ? 0 : 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+      return !o;
+    });
+  };
+
+  // widths for the expanding “pill” strip
+  const stripW = Math.min(width - 22 * 2, 340);
+  const interpW = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [AVATAR + 28, stripW],
+  });
+  const interpR = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [28, 24],
+  });
 
   return (
-    <>
-      {/* Collapsed pill */}
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        activeOpacity={0.9}
-        style={styles.bar}
+    <View style={styles.wrap} pointerEvents="box-none">
+      {/* teal “blob” + the primary circle (collapsed state) */}
+      <View style={styles.blob} pointerEvents="none" />
+
+      {/* Expandable container */}
+      <Animated.View
+        style={[
+          styles.expander,
+          {
+            width: interpW,
+            borderTopRightRadius: interpR as any,
+            borderBottomRightRadius: interpR as any,
+          },
+        ]}
       >
-        {activeThumb ? (
-          <Image source={{ uri: activeThumb }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Ionicons name="paw" size={20} color={colors.white} />
-          </View>
-        )}
-        <Ionicons name="chevron-down" size={18} color={colors.text} />
-      </TouchableOpacity>
+        {/* Left-most circle (always visible) */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={toggle}
+          style={styles.topCircle}
+        >
+          <Avatar photoURL={selected?.photoURL} name={selected?.name} size={AVATAR} />
+        </TouchableOpacity>
 
-      {/* Modal selector */}
-      <Modal visible={open} transparent animationType="fade">
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setOpen(false)} />
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Your Pets</Text>
-
-          <FlatList
-            data={[...pets, { id: '__add__', name: 'Add Pet' } as any]}
-            keyExtractor={(item: any) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-            renderItem={({ item }: any) => {
-              const isAdd = item.id === '__add__';
-              if (isAdd) {
-                return (
-                  <TouchableOpacity
-                    onPress={() => { setOpen(false); nav.navigate('PetSettings'); }}
-                    style={styles.item}
-                    activeOpacity={0.9}
-                  >
-                    <View style={[styles.itemAvatar, styles.addTile]}>
-                      <Ionicons name="add" size={26} color={colors.blue} />
-                    </View>
-                    <Text style={styles.itemLabel}>Add Pet</Text>
-                  </TouchableOpacity>
-                );
-              }
-
-              const active = selectedPet?.id === item.id;
+        {/* Expanded strip with all pets + add */}
+        {open && (
+          <View style={styles.stripRow}>
+            {pets.map((p) => {
+              const active = p.id === selected?.id;
               return (
                 <TouchableOpacity
-                  onPress={() => { setSelectedPetId(item.id); setOpen(false); }}
-                  style={styles.item}
+                  key={p.id}
+                  style={[styles.itemCircle, active && styles.itemActive]}
                   activeOpacity={0.9}
+                  onPress={() => {
+                    setSelectedPetId(p.id);
+                    toggle();
+                  }}
                 >
-                  {item.photoURL ? (
-                    <Image source={{ uri: item.photoURL }} style={[styles.itemAvatar, active && styles.itemAvatarActive]} />
-                  ) : (
-                    <View style={[styles.itemAvatar, styles.itemAvatarPlaceholder, active && styles.itemAvatarActive]}>
-                      <Ionicons name="paw" size={20} color={colors.white} />
-                    </View>
-                  )}
-                  <Text style={styles.itemLabel} numberOfLines={1}>{item.name || 'Pet'}</Text>
+                  <Avatar
+                    photoURL={p.photoURL}
+                    name={p.name}
+                    size={STRIP_AVATAR}
+                  />
                 </TouchableOpacity>
               );
-            }}
-          />
-        </View>
-      </Modal>
-    </>
+            })}
+
+            {/* Add pet circle */}
+            <TouchableOpacity
+              style={[styles.itemCircle, styles.addCircle]}
+              activeOpacity={0.9}
+              onPress={() => {
+                toggle();
+                nav.navigate('PetSettings'); // re-use settings screen to create/fill data
+              }}
+            >
+              <Text style={styles.plus}>＋</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Animated.View>
+    </View>
   );
 }
 
+/* ---------------- tiny avatar ---------------- */
+function Avatar({
+  photoURL,
+  name,
+  size,
+}: {
+  photoURL?: string | null;
+  name?: string | null;
+  size: number;
+}) {
+  if (photoURL) {
+    return (
+      <Image
+        source={{ uri: photoURL }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: GREY,
+        }}
+      />
+    );
+  }
+  const initials = (name || '?')
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#D7EFF2',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: TXT, fontWeight: '900' }}>{initials}</Text>
+    </View>
+  );
+}
+
+/* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
-  bar: {
-    alignSelf: 'center',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#e9e8e6ff',
-    paddingHorizontal: 12,
+  wrap: {
+    height: STRIP_H,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginTop: -147,
+  },
+
+  // big teal quarter-circle in the corner
+  blob: {
+    position: 'absolute',
+    left: -width * 0.22,
+    top: -STRIP_H * 0.55,
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: TEAL,
+  },
+
+  // the container that grows from a small circle to a rounded strip
+  expander: {
+    height: STRIP_H,
+    backgroundColor: TEAL,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    shadowColor: 'rgba(0,0,0,0.15)',
-    shadowOpacity: 1, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+    paddingLeft: 18,
+    paddingRight: 12,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    overflow: 'hidden',
   },
-  avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE/2 },
-  avatarPlaceholder: { backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
 
-  backdrop: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.25)' },
-  sheet: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.white, paddingTop: 16, paddingBottom: 28, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+  topCircle: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    backgroundColor: BG,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sheetTitle: { fontWeight: '900', fontSize: 16, paddingHorizontal: 16, marginBottom: 12 },
 
-  item: { width: 92, alignItems: 'center', marginRight: 10 },
-  itemAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#e9e8e6ff' },
-  itemAvatarPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blue },
-  itemAvatarActive: { borderWidth: 2, borderColor: colors.accent },
-  itemLabel: { marginTop: 6, fontSize: 12, fontWeight: '700', textAlign: 'center', maxWidth: 88 },
-  addTile: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.accent, backgroundColor: 'transparent' },
+  stripRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 14,
+    gap: 10,
+    flexShrink: 1,
+  },
+
+  itemCircle: {
+    width: STRIP_AVATAR,
+    height: STRIP_AVATAR,
+    borderRadius: STRIP_AVATAR / 2,
+    backgroundColor: BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemActive: {
+    borderWidth: 2,
+    borderColor: '#EE734A',
+  },
+
+  addCircle: {
+    backgroundColor: BG,
+  },
+  plus: {
+    color: TEAL,
+    fontSize: 28,
+    lineHeight: 28,
+    fontWeight: '900',
+    marginTop: -1,
+  },
 });
