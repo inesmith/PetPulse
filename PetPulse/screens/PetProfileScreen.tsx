@@ -1,11 +1,25 @@
 // screens/PetProfileScreen.tsx
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, KeyboardAvoidingView, Platform, TextInput, ScrollView, TouchableOpacity, } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -21,26 +35,83 @@ const colors = {
 const HEADER_H = 330;
 const NAV_HEIGHT = 64;
 const NAV_MARGIN = 8;
-// Lock the name pill height so the settings square can match it.
 const NAME_H = 72;
 const NAME_GAP = 6;
 
+/* helpers */
+function toTitle(s = '') {
+  return s
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
+}
+function formatDobForCard(dob?: string) {
+  if (!dob) return '';
+  const tryIso = new Date(dob);
+  if (!isNaN(+tryIso)) {
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    return tryIso.toLocaleDateString(undefined, opts).toUpperCase();
+  }
+  return dob.toUpperCase();
+}
+function ageFromDob(dob?: string): string | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(+d)) return null;
+  const now = new Date();
+  let years = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) years--;
+  return String(Math.max(0, years));
+}
+
 export default function PetProfileScreen() {
   const nav = useNavigation<any>();
-  const [notes, setNotes] = useState('');
-  const [reminders, setReminders] = useState([{ id: 1 }, { id: 2 }, { id: 3 }]);
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   const contentBottomPad = NAV_HEIGHT + Math.max(insets.bottom, NAV_MARGIN) + 16;
 
-  const handleAddReminder = () => {
-    setReminders(prev => [...prev, { id: prev.length + 1 }]);
-  };
+  const [pet, setPet] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notesLocal, setNotesLocal] = useState('');
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const ref = doc(db, 'users', user.uid, 'pets', 'primary');
+
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) {
+          console.log('Pet doc not found at users/{uid}/pets/primary');
+          setPet(null);
+          setNotesLocal('');
+          setLoading(false);
+          return;
+        }
+        const data = snap.data() || null;
+        console.log('[PetProfile] pet snapshot:', JSON.stringify(data));
+        setPet(data);
+        setNotesLocal((data?.notes ?? '').toString());
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('pet onSnapshot error:', err);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [user?.uid]);
+
+  const petName  = useMemo(() => toTitle(pet?.name ?? ''), [pet?.name]);
+  const petBreed = useMemo(() => toTitle(pet?.breed ?? ''), [pet?.breed]);
+  const dobText  = useMemo(() => formatDobForCard(pet?.dob), [pet?.dob]);
+  const ageText  = useMemo(() => pet?.age || ageFromDob(pet?.dob) || '', [pet?.age, pet?.dob]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left', 'right']}>
       <View style={[styles.container, { backgroundColor: colors.white }]}>
-        {/* Content scrolls; navbar is a sibling and stays fixed */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -62,19 +133,23 @@ export default function PetProfileScreen() {
 
             {/* Name row: pill + settings square */}
             <View style={styles.nameRow}>
-              {/* Name pill */}
               <View style={[styles.nameCard, styles.shadow]}>
                 <View>
-                  <Text style={[styles.petName, { color: colors.blue }]}>LINA LARDI</Text>
-                  <Text style={[styles.petBreed, { color: colors.dark }]}>American Bulldog</Text>
+                  <Text style={[styles.petName, { color: colors.blue }]}>
+                    {(petName || 'Your Pet').toUpperCase()}
+                  </Text>
+                  {!!petBreed && (
+                    <Text style={[styles.petBreed, { color: colors.dark }]}>{petBreed}</Text>
+                  )}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={[styles.labelSmall, { color: colors.dark }]}>DOB:</Text>
-                  <Text style={[styles.dob, { color: colors.dark }]}>4 MAY 2024</Text>
+                  <Text style={[styles.dob, { color: colors.dark }]}>
+                    {dobText || '—'}
+                  </Text>
                 </View>
               </View>
 
-              {/* Settings square */}
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => nav.navigate('PetSettings')}
@@ -86,35 +161,35 @@ export default function PetProfileScreen() {
 
             {/* Attribute chips */}
             <View style={styles.attrRow}>
-              <Attr label="AGE" value="1" />
-              <Attr label="COLOUR" value="MERLÉ" />
-              <Attr label="SIZE" value="XL" />
-              <Attr label="GENDER" value="F" />
-              <Attr label="CHIP" value="YES" />
+              <Attr label="AGE"    value={(ageText || '—').toString()} />
+              <Attr label="COLOUR" value={(pet?.colour || '—').toString().toUpperCase()} />
+              <Attr label="SIZE"   value={(pet?.size || '—').toString().toUpperCase()} />
+              <Attr label="GENDER" value={((pet?.gender || '—').toString().toUpperCase()[0] || '—')} />
+              <Attr label="CHIP"   value={pet?.hasChip === true ? 'YES' : pet?.hasChip === false ? 'NO' : '—'} />
             </View>
 
             {/* Weight row */}
             <View style={[styles.weightCard, { borderColor: colors.accent }]}>
               <Text style={[styles.weightLabel, { color: colors.dark }]}>WEIGHT:</Text>
-              <Text style={[styles.weightValue, { color: colors.blue }]}>35 KG</Text>
+              <Text style={[styles.weightValue, { color: colors.blue }]}>
+                {pet?.weight ? `${pet.weight} KG` : '—'}
+              </Text>
             </View>
 
             {/* Divider */}
             <View style={[styles.divider, { borderBottomColor: colors.accent }]} />
 
-            {/* Upcoming reminders */}
+            {/* Upcoming reminders (placeholder UI) */}
             <Text style={[styles.sectionTitle, { color: '#6E6E6E' }]}>UPCOMING REMINDERS</Text>
             <View style={styles.remindersRow}>
-              {reminders.map((r) => (
+              {[1,2,3].map((id) => (
                 <View
-                  key={r.id}
+                  key={id}
                   style={[styles.reminderBox, styles.shadow, { backgroundColor: '#e9e8e6ff' }]}
                 />
               ))}
-
-              {/* Add Reminder tile (always last) */}
               <TouchableOpacity
-                onPress={handleAddReminder}
+                onPress={() => {}}
                 activeOpacity={0.85}
                 style={[
                   styles.reminderBox,
@@ -127,11 +202,11 @@ export default function PetProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Editable Notes */}
+            {/* Notes (local display; persisted from settings) */}
             <View style={[styles.notesCard, { borderColor: colors.accent }]}>
               <TextInput
-                value={notes}
-                onChangeText={setNotes}
+                value={notesLocal}
+                onChangeText={setNotesLocal}
                 placeholder="NOTES..."
                 placeholderTextColor={colors.blue}
                 multiline
@@ -139,19 +214,24 @@ export default function PetProfileScreen() {
                 style={[styles.notesInput, { marginTop: -10, fontWeight: '900' }]}
                 maxLength={500}
               />
-              <Text style={styles.notesCount}>{notes.length}/500</Text>
+              <Text style={styles.notesCount}>{notesLocal.length}/500</Text>
+              {loading && <Text style={{ marginTop: 6, color: '#8A8A8A' }}>Loading pet…</Text>}
+              {!loading && pet === null && (
+                <Text style={{ marginTop: 6, color: '#8A8A8A' }}>
+                  No pet profile found. Go to Settings → Save Changes to create it.
+                </Text>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
 
-        {/* Sticky floating navbar — outside the KeyboardAvoidingView so it does NOT move */}
         <BottomNavBar />
       </View>
     </SafeAreaView>
   );
 }
 
-/* ---------- tiny presentational chip ---------- */
+/* --- chip --- */
 function Attr({ label, value }: { label: string; value: string }) {
   return (
     <View style={attrStyles.wrap}>
@@ -200,7 +280,6 @@ const styles = StyleSheet.create({
   },
   photo: { width: '100%', height: '100%' },
 
-  /* --- Name row (pill + settings) --- */
   nameRow: {
     marginTop: -26,
     alignSelf: 'center',
@@ -211,7 +290,7 @@ const styles = StyleSheet.create({
   nameCard: {
     height: NAME_H,
     flexGrow: 1,
-    width: width - 65 - NAME_H - NAME_GAP, 
+    width: width - 65 - NAME_H - NAME_GAP,
     backgroundColor: '#e9e8e6ff',
     borderRadius: 28,
     paddingHorizontal: 18,
@@ -297,7 +376,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Notes card styles
   notesCard: {
     marginTop: 16,
     marginHorizontal: 22,

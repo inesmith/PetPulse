@@ -1,5 +1,5 @@
 // screens/PetSettingsScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { config } from '../gluestack-ui.config';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -33,23 +38,98 @@ const ROW_R = 18;
 export default function PetSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 24;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
 
   // Form state
   const [name, setName]           = useState('');
   const [breed, setBreed]         = useState('');
-  const [dob, setDob]             = useState(''); // e.g. 04 May 2024
+  const [dob, setDob]             = useState(''); // Prefer ISO: YYYY-MM-DD
   const [height, setHeight]       = useState(''); // cm
   const [weight, setWeight]       = useState(''); // kg
   const [size, setSize]           = useState<'XS' | 'S' | 'M' | 'L' | 'XL' | ''>('');
   const [colour, setColour]       = useState('');
   const [gender, setGender]       = useState<'Female' | 'Male' | 'Other' | ''>('');
   const [hasChip, setHasChip]     = useState<'Yes' | 'No' | ''>('');
-  const [chipDetails, setChipDetails] = useState(''); // number / issuer, etc.
+  const [chipDetails, setChipDetails] = useState('');
+  const [notes, setNotes]         = useState('');
 
-  const onSave = () => {
-    // TODO: persist pet profile
-    navigation.navigate('PetProfileScreen');
+  // Load existing pet
+  useEffect(() => {
+    if (!user?.uid) return;
+    const ref = doc(db, 'users', user.uid, 'pets', 'primary');
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = (snap.data() || {}) as any;
+        setName((data.name ?? '').toString());
+        setBreed((data.breed ?? '').toString());
+        setDob((data.dob ?? '').toString());
+        setHeight((data.height ?? '').toString());
+        setWeight((data.weight ?? '').toString());
+        setSize((data.size ?? '') as any);
+        setColour((data.colour ?? '').toString());
+        setGender((data.gender ?? '') as any);
+        setHasChip((data.hasChip ? 'Yes' : 'No') as any);
+        setChipDetails((data.chipDetails ?? '').toString());
+        setNotes((data.notes ?? '').toString());
+        setLoading(false);
+      },
+      (err) => {
+        console.error('pet onSnapshot error:', err);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [user?.uid]);
+
+  const headerName = useMemo(() => (name || 'Your Pet').toUpperCase(), [name]);
+  const headerSub  = useMemo(() => (breed || '').toUpperCase(), [breed]);
+
+  const onSave = async () => {
+    if (!user?.uid) return;
+    if (saving) return;
+
+    const payload = {
+      name: name.trim(),
+      breed: breed.trim(),
+      dob: dob.trim(),                // recommend ISO yyyy-mm-dd
+      height: height.trim(),
+      weight: weight.trim(),
+      size: size || '',
+      colour: colour.trim(),
+      gender: gender || '',
+      hasChip: hasChip === 'Yes',
+      chipDetails: chipDetails.trim(),
+      notes: notes.trim(),
+      updatedAt: serverTimestamp(),
+      // optional computed age (years) from dob; kept as string for display
+      // age: computeAge(dob) // you can add if you want to store
+    };
+
+    if (!payload.name) {
+      Alert.alert('Missing info', 'Please enter your pet’s name.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid, 'pets', 'primary'),
+        payload,
+        { merge: true }
+      );
+      Alert.alert('Saved', 'Pet profile updated.');
+      navigation.goBack(); // or navigate('PetProfile')
+    } catch (e: any) {
+      console.log('SAVE PET ERROR:', e?.code, e?.message, e);
+      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -60,10 +140,10 @@ export default function PetSettingsScreen() {
         keyboardVerticalOffset={80}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-          {/* Header (right-aligned to match app vibe) */}
+          {/* Header */}
           <View style={styles.headerTextWrap}>
-            <Text style={styles.headerName}>LINA LARDI</Text>
-            <Text style={styles.headerSub}>AMERICAN BULLDOG</Text>
+            <Text style={styles.headerName}>{loading ? '…' : headerName}</Text>
+            {!!headerSub && <Text style={styles.headerSub}>{headerSub}</Text>}
           </View>
 
           {/* Pill */}
@@ -78,7 +158,13 @@ export default function PetSettingsScreen() {
           <View style={styles.sectionPad}>
             <LabeledInputRow label="NAME"  value={name}  onChangeText={setName} />
             <LabeledInputRow label="BREED" value={breed} onChangeText={setBreed} />
-            <LabeledInputRow label="DATE OF BIRTH" value={dob} onChangeText={setDob} placeholder="DD MON YYYY" autoCapitalize="characters" />
+            <LabeledInputRow
+              label="DATE OF BIRTH"
+              value={dob}
+              onChangeText={setDob}
+              placeholder="YYYY-MM-DD (recommended)"
+              autoCapitalize="none"
+            />
           </View>
 
           {/* Measurements */}
@@ -103,7 +189,6 @@ export default function PetSettingsScreen() {
           {/* Appearance & Gender */}
           <SectionLabel label="APPEARANCE" />
           <View style={styles.sectionPad}>
-            {/* Size chips */}
             <ChipRow
               label="SIZE"
               options={['XS','S','M','L','XL'] as const}
@@ -111,7 +196,6 @@ export default function PetSettingsScreen() {
               onChange={(v)=>setSize(v)}
             />
             <LabeledInputRow label="COLOUR" value={colour} onChangeText={setColour} />
-            {/* Gender chips */}
             <ChipRow
               label="GENDER"
               options={['Female','Male','Other'] as const}
@@ -140,14 +224,31 @@ export default function PetSettingsScreen() {
             )}
           </View>
 
+          {/* Notes */}
+          <SectionLabel label="NOTES" />
+          <View style={styles.sectionPad}>
+            <View style={[styles.row, { borderColor: colors.accent, alignItems: 'flex-start' }]}>
+              <Text style={[styles.cellLeft, { marginTop: 14 }]}>NOTES</Text>
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Anything important about your pet..."
+                placeholderTextColor={colors.label}
+                style={[styles.cellInputRight, { minHeight: 100, textAlign: 'left' }]}
+                multiline
+              />
+            </View>
+          </View>
+
           {/* Save */}
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={onSave}
-              style={[styles.saveBtn, styles.cardShadow]}
+              style={[styles.saveBtn, styles.cardShadow, saving && { opacity: 0.6 }]}
+              disabled={saving}
             >
-              <Text style={styles.saveText}>Save Changes</Text>
+              {saving ? <ActivityIndicator /> : <Text style={styles.saveText}>Save Changes</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -299,7 +400,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 34,
     borderRadius: 17,
-    borderWidth: 0,              // only the active chip gets a border
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
