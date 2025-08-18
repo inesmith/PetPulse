@@ -68,7 +68,7 @@ export default function LoginScreen({ navigation }: any) {
         <View style={styles.bottomContent}>
           <Text style={styles.sectionTitle}>Log In</Text>
           <Text style={styles.sectionCopy}>
-            Access your races, stats, and the community.
+            Log in and access your journey towards smarter,{'\n'}more connected pet care.
           </Text>
 
           <TextInput

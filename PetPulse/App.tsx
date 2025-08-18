@@ -1,4 +1,3 @@
-// App.tsx
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -6,6 +5,7 @@ import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { config } from './gluestack-ui.config';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PetProvider } from './context/PetContext';
 
 // Auth screens
 import LoginScreen from './screens/LoginScreen';
@@ -24,12 +24,11 @@ const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
   const { user, loading } = useAuth();
-  if (loading) return null; // splash if you want
+  if (loading) return null;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        // Protected stack
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="PetProfile" component={PetProfileScreen} />
@@ -40,7 +39,6 @@ function RootNavigator() {
           <Stack.Screen name="PetSettings" component={PetSettingsScreen} />
         </>
       ) : (
-        // Auth stack
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
@@ -54,9 +52,11 @@ export default function App() {
   return (
     <GluestackUIProvider config={config}>
       <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
+        <PetProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </PetProvider>
       </AuthProvider>
     </GluestackUIProvider>
   );

@@ -1,3 +1,4 @@
+// screens/PetProfileScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -31,6 +32,7 @@ import {
   addDoc,
   serverTimestamp,
   Timestamp,
+  where,
 } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
@@ -138,9 +140,15 @@ export default function PetProfileScreen() {
   useEffect(() => {
     if (!user?.uid) return;
     const col = collection(db, 'users', user.uid, 'pets', 'primary', 'reminders');
-    const q = query(col, orderBy('when', 'asc'), qLimit(4));
+
+    // Option A: keep *all* reminders, oldest-first (no index needed)
+    // const qy = query(col, orderBy('when', 'asc'), qLimit(4));
+
+    // Option B (recommended): only *future* reminders (may ask you to create an index once)
+    const qy = query(col, where('when', '>=', Timestamp.now()), orderBy('when', 'asc'), qLimit(4));
+
     const unsub = onSnapshot(
-      q,
+      qy,
       (snap) => {
         const rows: any[] = [];
         snap.forEach((d) => rows.push({ id: d.id, ...(d.data() as any) }));
@@ -166,8 +174,9 @@ export default function PetProfileScreen() {
     let when: Date | null = null;
     if (rDate.trim()) {
       // accept “YYYY-MM-DD HH:mm” or “YYYY-MM-DD”
-      const s = rDate.trim().length <= 10 ? `${rDate.trim()} 09:00` : rDate.trim();
-      const candidate = new Date(s.replace(' ', 'T'));
+      const raw = rDate.trim();
+      const isoish = raw.length <= 10 ? `${raw}T12:00` : raw.replace(' ', 'T'); // noon default to reduce TZ surprises
+      const candidate = new Date(isoish);
       if (!isNaN(+candidate)) when = candidate;
     }
     setSavingReminder(true);
@@ -264,6 +273,11 @@ export default function PetProfileScreen() {
             {/* Upcoming reminders */}
             <Text style={[styles.sectionTitle, { color: '#6E6E6E' }]}>UPCOMING REMINDERS</Text>
             <View style={styles.remindersRow}>
+              {reminders.length === 0 && (
+                <Text style={{ color: '#6E6E6E', fontWeight: '800', marginBottom: 8 }}>
+                  No reminders yet
+                </Text>
+              )}
               {reminders.map((r) => (
                 <View
                   key={r.id}
