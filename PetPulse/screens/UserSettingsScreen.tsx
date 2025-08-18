@@ -1,5 +1,5 @@
 // screens/UserSettingsScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,20 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
 import { useNavigation } from '@react-navigation/native';
-import { logoutUser } from '../services/authService'; // <- direct logout
+import { logoutUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
+import { auth, db } from '../firebase';
+import {
+  doc,
+  onSnapshot,
+  setDoc,
+  runTransaction,
+  serverTimestamp,
+} from 'firebase/firestore';
+import {
+  updateEmail,
+  updateProfile,
+} from 'firebase/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -34,27 +47,197 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const ROW_R = 18;
 
+/* ---------- helpers ---------- */
+function slugUsername(input: string) {
+  return input
+    .normalize('NFD')                 // split accents
+    .replace(/[\u0300-\u036f]/g, '')  // remove accents
+    .toLowerCase()
+    .replace(/[^a-z0-9._ -]/g, '')    // allow letters/digits/._- and spaces
+    .trim()
+    .replace(/\s+/g, '-');            // spaces -> hyphen
+}
+
 export default function UserSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 24;
 
+  const { user } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // Form fields
   const [fullName, setFullName] = useState('');
-  const [userName, setUserName] = useState('');
+  const [userName, setUserName] = useState(''); // editable handle (pretty)
   const [email, setEmail]       = useState('');
   const [phone, setPhone]       = useState('');
   const [age, setAge]           = useState('');
   const [gender, setGender]     = useState<'Female' | 'Male' | 'Other' | ''>('');
 
-  const onSave = () => {
-    // TODO: Save logic here
-    navigation.navigate('PetProfileScreen');
+  // Keep a copy to detect changes
+  const [initialUsername, setInitialUsername] = useState<string>('');
+  const [initialEmail, setInitialEmail]       = useState<string>('');
+
+  /* --------- Load user profile from Firestore --------- */
+  useEffect(() => {
+    if (!user?.uid) return;
+    const ref = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = (snap.data() || {}) as {
+          displayName?: string;
+          username?: string;
+          email?: string;
+          phone?: string;
+          age?: string | number;
+          gender?: 'Female' | 'Male' | 'Other' | '';
+        };
+
+        const displayName = (data.displayName ?? user.displayName ?? '').trim();
+        const username    = (data.username ?? displayName ?? (user.email?.split('@')[0] ?? '')).toString();
+        const theEmail    = (data.email ?? user.email ?? '').toString();
+
+        setFullName(displayName);
+        setUserName(username);
+        setEmail(theEmail);
+        setPhone((data.phone ?? '').toString());
+        setAge((data.age ?? '').toString());
+        setGender((data.gender ?? '') as any);
+
+        setInitialUsername(username);
+        setInitialEmail(theEmail);
+
+        setLoading(false);
+      },
+      (err) => {
+        console.error('onSnapshot(users) error:', err);
+        Alert.alert('Error', 'Could not load your profile.');
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [user?.uid]);
+
+  const headerGreeting = useMemo(() => {
+    const n = fullName || userName || (email ? email.split('@')[0] : 'USER');
+    return n.toUpperCase();
+  }, [fullName, userName, email]);
+
+  /* --------- Save profile --------- */
+  const onSave = async () => {
+    if (!user?.uid) return;
+    if (saving) return;
+
+    const trimmedFullName = fullName.trim();
+    const trimmedUserName = userName.trim();
+    const trimmedEmail    = email.trim().toLowerCase();
+
+    if (!trimmedFullName || !trimmedUserName || !trimmedEmail) {
+      Alert.alert('Missing info', 'Full name, username, and email are required.');
+      return;
+    }
+
+    // username rules
+    const newSlug = slugUsername(trimmedUserName);
+    const oldSlug = slugUsername(initialUsername);
+    if (!newSlug) {
+      Alert.alert('Invalid username', 'Use letters, numbers, ".", "_" or "-".');
+      return;
+    }
+    if (newSlug.length < 3 || newSlug.length > 30) {
+      Alert.alert('Invalid username', 'Username must be 3–30 characters.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 1) If username changed, update usernames mapping atomically
+      if (newSlug !== oldSlug) {
+        await runTransaction(db, async (tx) => {
+          const newRef = doc(db, 'usernames', newSlug);
+          const newSnap = await tx.get(newRef);
+
+          if (newSnap.exists() && (newSnap.data() as any).uid !== user.uid) {
+            throw new Error('That username is taken. Please choose another.');
+          }
+
+          // reserve new
+          tx.set(newRef, { uid: user.uid });
+
+          // release old (rules must allow owner delete)
+          if (oldSlug) {
+            const oldRef = doc(db, 'usernames', oldSlug);
+            tx.delete(oldRef);
+          }
+        });
+      }
+
+      // 2) Update Auth profile (displayName shown across Auth UIs)
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: trimmedFullName || trimmedUserName });
+      }
+
+      // 3) If email changed, try to update Auth email
+      if (trimmedEmail !== initialEmail) {
+        try {
+          if (!auth.currentUser) throw new Error('Not signed in');
+          await updateEmail(auth.currentUser, trimmedEmail);
+        } catch (e: any) {
+          const code = e?.code || '';
+          if (code === 'auth/requires-recent-login') {
+            Alert.alert(
+              'Re-authentication needed',
+              'For security, please log in again to change your email.'
+            );
+            throw e;
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      // 4) Update Firestore profile document
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          displayName: trimmedFullName,      // pretty full name
+          username: newSlug,                 // handle/slug
+          email: auth.currentUser?.email ?? trimmedEmail,
+          phone: phone.trim(),
+          age: age.trim(),
+          gender: gender || '',
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // 5) Refresh Auth object (so displayName/email are current if used elsewhere)
+      if (auth.currentUser) {
+        try { await auth.currentUser.reload(); } catch {}
+      }
+
+      // 6) Optimistically update local state so headers/UI reflect changes immediately
+      setInitialUsername(trimmedUserName);
+      setInitialEmail(auth.currentUser?.email ?? trimmedEmail);
+      setFullName(trimmedFullName);
+      setUserName(trimmedUserName);
+      setEmail(auth.currentUser?.email ?? trimmedEmail);
+
+      Alert.alert('Saved', 'Your profile has been updated.');
+    } catch (e: any) {
+      console.log('SAVE ERROR:', e?.code, e?.message, e);
+      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onResetPassword = () => {
-    // TODO: Reset password flow here
+    Alert.alert('Coming soon', 'Password reset is available from the Login screen.');
   };
 
   const onLogout = async () => {
@@ -67,8 +250,7 @@ export default function UserSettingsScreen() {
         onPress: async () => {
           try {
             setLoggingOut(true);
-            await logoutUser(); // <- Firebase signOut(auth)
-            // Do NOT navigate; App.tsx onAuthStateChanged flips stacks
+            await logoutUser();
           } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Could not log out. Try again.');
           } finally {
@@ -90,7 +272,9 @@ export default function UserSettingsScreen() {
           
           {/* Header */}
           <View style={styles.headerTextWrap}>
-            <Text style={styles.headerName}>WELCOME BACK,{'\n'}USER</Text>
+            <Text style={styles.headerName}>
+              WELCOME BACK,{'\n'}{loading ? '…' : headerGreeting}
+            </Text>
           </View>
 
           {/* Pill */}
@@ -151,10 +335,10 @@ export default function UserSettingsScreen() {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={onSave}
-              style={[styles.saveBtn, styles.cardShadow]}
-              disabled={loggingOut}
+              style={[styles.saveBtn, styles.cardShadow, saving && { opacity: 0.6 }]}
+              disabled={saving || loggingOut}
             >
-              <Text style={styles.saveText}>Save Changes</Text>
+              {saving ? <ActivityIndicator /> : <Text style={styles.saveText}>Save Changes</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
