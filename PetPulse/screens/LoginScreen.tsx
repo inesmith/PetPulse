@@ -11,7 +11,6 @@ const colors = {
   blue: (config as any)?.theme?.colors?.blue ?? '#73C3D1',
   white: (config as any)?.theme?.colors?.white ?? '#F8F7F4',
   accent: (config as any)?.theme?.colors?.o ?? '#EE734A',
-  text: (config as any)?.theme?.colors?.text ?? '#1C1C1C',
 };
 
 export default function LoginScreen({ navigation }: any) {
@@ -108,7 +107,7 @@ export default function LoginScreen({ navigation }: any) {
               <Text style={styles.signupLink}>Sign Up</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => resetPassword(emailOrUsername)}>
-                <Text style={{ color: '#F8F7F4', marginTop: 8, textDecorationLine: 'underline' }}>
+                <Text style={styles.forgotPassword}>
                 Forgot password?
                 </Text>
             </TouchableOpacity>
@@ -195,5 +194,11 @@ const styles = StyleSheet.create({
     color: '#F8F7F4',
     fontWeight: '800',
     textDecorationLine: 'underline',
+  },
+  forgotPassword: {
+    color: '#F8F7F4',
+    marginTop: 1,
+    textDecorationLine: 'underline',
+    marginLeft: 74,
   },
 });

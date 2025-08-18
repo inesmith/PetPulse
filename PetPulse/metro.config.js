@@ -1,8 +1,5 @@
 // metro.config.js
-const { getDefaultConfig } = require("@expo/metro-config");
-
+const { getDefaultConfig } = require("expo/metro-config");
 const config = getDefaultConfig(__dirname);
-
-config.resolver.resolverMainFields = ["react-native", "browser", "main"];
-
+config.resolver.unstable_enablePackageExports = true;
 module.exports = config;

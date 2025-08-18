@@ -1,11 +1,9 @@
-import { getApps, initializeApp } from 'firebase/app'; 
-import { getAuth } from 'firebase/auth'; 
-import { getFirestore } from 'firebase/firestore'; 
-import { getStorage } from 'firebase/storage'; 
-import { Platform } from 'react-native'; 
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'; 
+// firebase.ts
+import { getApps, initializeApp } from 'firebase/app';
+import { initializeAuth, inMemoryPersistence, getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCoNvg5j3figkBW41eK4tHqEqShSESZuWQ",
   authDomain: "petpulse-2d843.firebaseapp.com",
@@ -15,10 +13,11 @@ const firebaseConfig = {
   appId: "1:354704738179:web:c563cf97812bf57136d8b6"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 
-// Export services
+// Explicitly use memory-only persistence (no AsyncStorage)
+initializeAuth(app, { persistence: inMemoryPersistence });
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

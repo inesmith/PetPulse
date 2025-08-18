@@ -109,8 +109,8 @@ export default function SignupScreen({ navigation }: any) {
 
           <View style={styles.loginRow}>
             <Text style={styles.loginCopy}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Log In</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.loginLink}>Log In</Text>
             </TouchableOpacity>
           </View>
         </View>
