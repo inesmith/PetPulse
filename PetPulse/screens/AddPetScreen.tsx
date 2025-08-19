@@ -15,7 +15,7 @@ import {
   Image,
   Modal,
   Pressable,
-  StatusBar, // ✅ remove Android top white by drawing under status bar
+  StatusBar,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,9 +41,6 @@ const colors = {
 const ROW_R = 18;
 const PHOTO_SIDE = 96;
 
-// ✅ Match the PetNav blob placement exactly
-const BLOB_TOP = -55;
-
 export default function AddPetScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -53,32 +50,31 @@ export default function AddPetScreen() {
   const padBottom = 64 + Math.max(insets.bottom, 8) + 24;
 
   // Form state
-  const [name, setName]                 = useState('');
-  const [breed, setBreed]               = useState('');
-  const [dob, setDob]                   = useState(''); // YYYY-MM-DD
-  const [height, setHeight]             = useState('');
-  const [weight, setWeight]             = useState('');
-  const [size, setSize]                 = useState<'XS'|'S'|'M'|'L'|'XL'|''>('');
-  const [colour, setColour]             = useState('');
-  const [gender, setGender]             = useState<'Female'|'Male'|'Other'|''>('');
-  const [hasChip, setHasChip]           = useState<'Yes'|'No'|''>('');
-  const [chipDetails, setChipDetails]   = useState('');
-  const [notes, setNotes]               = useState('');
+  const [name, setName]               = useState('');
+  const [breed, setBreed]             = useState('');
+  const [dob, setDob]                 = useState(''); // YYYY-MM-DD
+  const [height, setHeight]           = useState('');
+  const [weight, setWeight]           = useState('');
+  const [size, setSize]               = useState<'XS'|'S'|'M'|'L'|'XL'|''>('');
+  const [colour, setColour]           = useState('');
+  const [gender, setGender]           = useState<'Female'|'Male'|'Other'|''>('');
+  const [hasChip, setHasChip]         = useState<'Yes'|'No'|''>('');
+  const [chipDetails, setChipDetails] = useState('');
+  const [notes, setNotes]             = useState('');
 
   // Photo
-  const [photoURL, setPhotoURL]         = useState<string | null>(null);
-  const [photoLocal, setPhotoLocal]     = useState<string | null>(null);
+  const [photoURL, setPhotoURL]     = useState<string | null>(null);
+  const [photoLocal, setPhotoLocal] = useState<string | null>(null);
 
   // Popups
-  const [photoMenuOpen, setPhotoMenuOpen]       = useState(false);
-  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
+  const [photoMenuOpen, setPhotoMenuOpen]         = useState(false);
+  const [photoPreviewOpen, setPhotoPreviewOpen]   = useState(false);
 
   const [saving, setSaving] = useState(false);
 
   const headerName = useMemo(() => 'ADD YOUR PET', []);
-  const headerSub  = useMemo(() => (breed || '').toUpperCase(), [breed]);
 
-  // ✅ Up-to-date ImagePicker API
+  // ImagePicker (new API)
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
@@ -125,10 +121,8 @@ export default function AddPetScreen() {
 
     setSaving(true);
     try {
-      // Generate a new pet id
       const newId = Date.now().toString();
 
-      // If user picked a photo, upload first
       let photoFields: Record<string, any> = {};
       if (photoLocal) {
         const { url, path } = await uploadPetImage(user.uid, newId, photoLocal);
@@ -138,9 +132,7 @@ export default function AddPetScreen() {
 
       await setDoc(doc(db, 'users', user.uid, 'pets', newId), { ...payload, ...photoFields }, { merge: true });
 
-      // Make the newly created pet the selected one
       setSelectedPetId(newId);
-
       Alert.alert('Saved', 'Pet created.');
       navigation.goBack();
     } catch (e: any) {
@@ -155,7 +147,7 @@ export default function AddPetScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
-      {/* ✅ Draw under status bar to remove Android top white */}
+      
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <KeyboardAvoidingView
@@ -164,16 +156,15 @@ export default function AddPetScreen() {
         keyboardVerticalOffset={80}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-          {/* 🔵 Blob in the exact same position as PetNav */}
+          {/* Blob  */}
           <View style={styles.blob} pointerEvents="none" />
 
-          {/* Header (right aligned, like other screens) */}
+          {/* Header  */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerName}>{headerName}</Text>
-            {!!headerSub && <Text style={styles.headerSub}>{headerSub}</Text>}
           </View>
 
-          {/* Profile photo — sits like on PetSettings (overlaps into blob area) */}
+          {/* Profile photo  */}
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -298,7 +289,7 @@ export default function AddPetScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* --- Photo menu modal --- */}
+      {/* Photo menu modal */}
       <Modal
         visible={photoMenuOpen}
         transparent
@@ -332,7 +323,7 @@ export default function AddPetScreen() {
         </View>
       </Modal>
 
-      {/* --- Fullscreen preview modal --- */}
+      {/* Fullscreen preview */}
       <Modal
         visible={photoPreviewOpen}
         transparent
@@ -433,16 +424,14 @@ function ChipRow<T extends string>({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
 
-  // Header spacing mirrors other screens (content sits below the blob)
   headerTextWrap: { marginTop: 125, alignItems: 'flex-end', paddingHorizontal: 22 },
   headerName: { fontSize: 26, fontWeight: '900', letterSpacing: 0.4, color: colors.text, textAlign: 'right', lineHeight: 28 },
-  headerSub: { fontSize: 12, color: '#6E6E6E', marginTop: 2, textAlign: 'right' },
 
-  // 🔵 Blob matches PetNav placement
+  // Blob 
   blob: {
     position: 'absolute',
     left: -width * 0.10,
-    top: -30,          
+    top: -30,
     width: width * 0.6,
     height: width * 0.6,
     borderBottomRightRadius: width,
@@ -450,7 +439,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 
-  /* Photo (same feel as PetSettings — near the blob) */
+  /* Photo */
   photoFrame: {
     width: PHOTO_SIDE,
     height: PHOTO_SIDE,
@@ -460,7 +449,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.accent,
     marginLeft: 10,
-    marginTop: -105, // pull into blob area like PetSettings
+    marginTop: -105, 
   },
   photoImg: { width: '100%', height: '100%' },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
