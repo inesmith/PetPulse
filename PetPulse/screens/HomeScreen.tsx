@@ -1,21 +1,22 @@
-// screens/HomeScreen.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Button,
   Text,
   StyleSheet,
   Dimensions,
-  ImageBackground,
   TouchableOpacity,
   Image,
   Platform,
   StatusBar,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import MapView, { Polyline, Marker, PROVIDER_GOOGLE, Region, LatLng } from 'react-native-maps';
+import * as Location from 'expo-location';
+
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
 import PetNav from '../components/PetNav';
@@ -37,15 +38,32 @@ import {
 const { width } = Dimensions.get('window');
 
 const colors = {
-  blue: (config as any)?.theme?.colors?.blue ?? '#73C3D1',
+  blue:  (config as any)?.theme?.colors?.blue  ?? '#73C3D1',
   White: (config as any)?.theme?.colors?.white ?? '#F8F7F4',
-  accent: (config as any)?.theme?.colors?.o ?? '#EE734A',
-  text: (config as any)?.theme?.colors?.text ?? '#1C1C1C',
-  grey: '#DADADA',
+  accent:(config as any)?.theme?.colors?.o     ?? '#EE734A',
+  text:  (config as any)?.theme?.colors?.text  ?? '#1C1C1C',
+  grey:  '#DADADA',
 };
 
 const TODAY_H = 60;
 const BOTTOM_BAR_H = 88;
+
+/** ---- distance/steps helpers ---- */
+const toRad = (v: number) => (v * Math.PI) / 180;
+function haversine(a: LatLng, b: LatLng): number {
+  const R = 6371000; // meters
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+// Rough step estimate from distance walked (meters / stride meters)
+// Tweak to your preference (0.78m is a common adult stride length)
+const STRIDE_M = 0.78;
 
 type ReminderItem = {
   id: string;
@@ -104,7 +122,7 @@ async function ensureUserDoc(uid: string, email?: string | null, displayName?: s
 
 export default function HomeScreen() {
   const nav = useNavigation<any>();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isIOS = Platform.OS === 'ios';
 
@@ -115,7 +133,15 @@ export default function HomeScreen() {
   const childUnsubsRef = useRef<(() => void)[]>([]);
   const [nowTick, setNowTick] = useState<number>(Date.now()); // re-render clock
 
-  // keep UI “live” so past reminders drop off without db changes
+  // ---- live location / path / distance ----
+  const mapRef = useRef<MapView | null>(null);
+  const [path, setPath] = useState<LatLng[]>([]);
+  const [current, setCurrent] = useState<LatLng | null>(null);
+  const [distanceM, setDistanceM] = useState(0);
+  const [region, setRegion] = useState<Region | undefined>(undefined);
+  const [locReady, setLocReady] = useState(false);
+
+  // Keep UI “live” so past reminders drop off without db changes
   useEffect(() => {
     const t = setInterval(() => setNowTick(Date.now()), 60_000);
     return () => clearInterval(t);
@@ -158,12 +184,11 @@ export default function HomeScreen() {
     };
   }, [user?.uid]);
 
-  // --- Listen to pets and reminders ---
+  // --- Listen to ALL pets & their reminders ---
   useEffect(() => {
     childUnsubsRef.current.forEach((u) => u());
     childUnsubsRef.current = [];
     setRemindersRaw([]);
-
     if (!user?.uid) return;
 
     const petsCol = collection(db, 'users', user.uid, 'pets');
@@ -234,10 +259,65 @@ export default function HomeScreen() {
     };
   }, [user?.uid]);
 
+  // ---- Foreground location tracking, draw path & accumulate distance ----
+  useEffect(() => {
+    let watchSub: Location.LocationSubscription | null = null;
+
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Location denied', 'Enable Location to track your walk on the map.');
+          return;
+        }
+
+        const last = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const start = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+        setCurrent(start);
+        setPath([start]);
+        setRegion({
+          latitude: start.latitude,
+          longitude: start.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+        setLocReady(true);
+
+        watchSub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 2000,     // ~2s
+            distanceInterval: 3,    // ~3 meters min
+          },
+          (loc) => {
+            const p: LatLng = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            setCurrent(p);
+            setPath((prev) => {
+              if (prev.length === 0) return [p];
+              const last = prev[prev.length - 1];
+              const d = haversine(last, p);
+              // filter tiny jitter (< 2m)
+              if (d < 2) return prev;
+
+              setDistanceM((m) => m + d);
+              return [...prev, p];
+            });
+          }
+        );
+      } catch (e) {
+        console.warn('Location error:', e);
+      }
+    })();
+
+    return () => {
+      try { watchSub?.remove(); } catch {}
+    };
+  }, []);
+
   const visibleReminders = useMemo(() => {
     const nowMs = nowTick;
     const future = remindersRaw.filter((r) => {
-      if (!r.when) return true;
+      if (!r.when) return true; // keep undated reminders
       return r.when.toMillis() >= nowMs;
     });
     return future
@@ -249,6 +329,7 @@ export default function HomeScreen() {
       .slice(0, 8);
   }, [remindersRaw, nowTick]);
 
+  // ---- Greeting ----
   const greetingName = useMemo(() => {
     const fromDb = (profileName ?? '').trim();
     const fromAuth = (user?.displayName ?? '').trim();
@@ -256,6 +337,7 @@ export default function HomeScreen() {
     return (fromDb || fromAuth || fallback).toUpperCase();
   }, [profileName, user?.displayName, user?.email]);
 
+  // ---- Today's date ----
   const { dayTop, dayBottom } = useMemo(() => {
     const now = new Date();
     const weekday = now.toLocaleDateString(undefined, { weekday: 'short' });
@@ -266,6 +348,9 @@ export default function HomeScreen() {
       dayBottom: `${day} ${month}`.toUpperCase(),
     };
   }, []);
+
+  const stepsToday = Math.max(0, Math.round(distanceM / STRIDE_M));
+  const distanceKm = (distanceM / 1000).toFixed(2);
 
   return (
     <SafeAreaView
@@ -278,9 +363,7 @@ export default function HomeScreen() {
         style={{
           flex: 1,
           backgroundColor: colors.White,
-          // 🔻 remove iOS top padding so nothing white shows at the top
-          paddingTop: 0,
-          // keep space above bottom nav
+          paddingTop: 0, // no white band at top
           paddingBottom: insets.bottom + BOTTOM_BAR_H + 12,
         }}
       >
@@ -298,7 +381,7 @@ export default function HomeScreen() {
             <PetNav />
           </View>
 
-          {/* Today row: Today card + Settings square */}
+          {/* Today row: Today card + Settings */}
           <View style={styles.todayWrap}>
             <View style={styles.todayRow}>
               <View style={[styles.todayCard, styles.shadow]}>
@@ -363,25 +446,75 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Steps */}
+          {/* Steps — now shows steps for today (derived from tracked distance) */}
           <View style={[styles.stepsCard, { borderColor: colors.accent }]}>
-            <Text style={styles.stepsLabel}>STEPS</Text>
-            <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]}>3478</Text>
+            <Text style={styles.stepsLabel}>STEPS TODAY</Text>
+            <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]}>{stepsToday}</Text>
           </View>
 
-          {/* Map preview */}
+          {/* Live Map preview with polyline */}
           <View style={[styles.mapCard, { borderColor: colors.accent }]}>
-            <ImageBackground
-              source={require('../assets/map-placeholder.png')}
-              style={styles.mapImg}
-              imageStyle={{ borderRadius: 16, opacity: 0.25 }}
-              resizeMode="cover"
+            <TouchableOpacity
+              activeOpacity={0.96}
+              onPress={() => nav.navigate('TrackMap')}
+              style={{ width: '100%', height: 250, borderRadius: 16, overflow: 'hidden' }}
             >
-              <Text style={[styles.distanceLabel, { color: colors.accent }]}>
-                DISTANCE: 2,5 km
-              </Text>
-            </ImageBackground>
+              <MapView
+                ref={(r) => { mapRef.current = r; }}
+                style={{ width: '100%', height: '100%' }}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={
+                  region ?? {
+                    latitude: 37.78825,
+                    longitude: -122.4324,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }
+                }
+                region={region}
+                onRegionChangeComplete={(r) => setRegion(r)}
+                showsUserLocation
+                followsUserLocation
+                showsMyLocationButton={false}
+                toolbarEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                scrollEnabled
+                zoomEnabled
+                mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
+                {path.length > 1 && (
+                  <Polyline
+                    coordinates={path}
+                    strokeWidth={5}
+                    strokeColor={colors.blue}
+                  />
+                )}
+                {current && (
+                  <Marker coordinate={current} anchor={{ x: 0.5, y: 0.5 }}>
+                    <View style={{
+                      width: 12, height: 12, borderRadius: 6,
+                      backgroundColor: colors.accent, borderWidth: 2, borderColor: '#fff'
+                    }} />
+                  </Marker>
+                )}
+              </MapView>
+
+              {/* Distance overlay (same style spot as before) */}
+              <View style={styles.mapOverlay}>
+                <Text style={[styles.distanceLabel, { color: colors.accent }]}>
+                  DISTANCE: {distanceKm} km
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
+
+          {/* Tip if location off */}
+          {!locReady && (
+            <Text style={{ marginTop: 8, paddingHorizontal: 22, color: '#8A8A8A' }}>
+              Enable Location to draw your route and count steps.
+            </Text>
+          )}
         </ScrollView>
 
         {/* Floating nav */}
@@ -516,6 +649,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     overflow: 'hidden',
   },
-  mapImg: { width: '100%', height: 250, justifyContent: 'center', padding: 12 },
-  distanceLabel: { fontWeight: '900', fontSize: 13, marginTop: 210 },
+  mapOverlay: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    pointerEvents: 'none',
+  },
+  distanceLabel: { fontWeight: '900', fontSize: 13 },
+
 });

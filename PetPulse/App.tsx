@@ -21,6 +21,7 @@ import UserSettingsScreen from './screens/UserSettingsScreen';
 import PetSettingsScreen from './screens/PetSettingsScreen';
 
 import AddPetScreen from './screens/AddPetScreen';
+import TrackMapScreen from './screens/TrackMapScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -41,6 +42,8 @@ function RootNavigator() {
           <Stack.Screen name="UserSettings" component={UserSettingsScreen} />
           <Stack.Screen name="PetSettings" component={PetSettingsScreen} />
           <Stack.Screen name="AddPet" component={AddPetScreen} />
+          <Stack.Screen name="TrackMap" component={TrackMapScreen} options={{ headerShown: false }} />
+
         </>
       ) : (
         <>
