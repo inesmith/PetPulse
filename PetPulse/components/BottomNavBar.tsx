@@ -26,21 +26,33 @@ const TABS: { key: TabKey; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'Health',      icon: 'medkit' },
 ];
 
+const BAR_HEIGHT = 64;
+// how much extra white background you want beyond the safe area
+const EXTRA_WHITE = 20;
+
 export default function BottomNavBar() {
   const nav = useNavigation<any>();
   const route = useRoute();
   const { bottom } = useSafeAreaInsets();
 
+  // keep a minimum inset similar to your original Math.max(bottom, 8)
+  const inset = Math.max(bottom, 8);
+
   return (
     <View
-      style={[styles.container, { bottom: Math.max(bottom, 8) }]}
-      pointerEvents="box-none"
+      style={[
+        styles.container,
+        {
+          paddingBottom: inset + EXTRA_WHITE, // extend the white a little more
+          backgroundColor: colors.white,
+        },
+      ]}
     >
       {/* Blue rounded bar */}
       <View style={[styles.bar, { backgroundColor: colors.blue }]} />
 
-      {/* Icons */}
-      <View style={styles.row}>
+      {/* Icons pinned to the bar area (not the whole container) */}
+      <View style={[styles.row, { height: BAR_HEIGHT }]}>
         {TABS.map(({ key, icon }) => {
           const active = route.name === key;
           return (
@@ -66,31 +78,28 @@ export default function BottomNavBar() {
   );
 }
 
-const BAR_HEIGHT = 64;
-
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 20,
-    right: 20,
-    height: BAR_HEIGHT,
-    backgroundColor: 'transparent', // keep transparent
-    // ❌ remove marginBottom hack
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.white,
+    paddingHorizontal: 20,
   },
   bar: {
-    position: 'absolute',
     width: '100%',
-    height: '100%',
+    height: BAR_HEIGHT,
     borderRadius: 18,
+    top: 10,
   },
   row: {
     position: 'absolute',
-    left: 18,
-    right: 18,
-    top: 0,
-    bottom: 0,
+    top: 10,                // <-- keep icons aligned with the bar’s top
+    left: 38,
+    right: 38,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center',  // centers icons vertically within BAR_HEIGHT
     justifyContent: 'space-between',
   },
   hole: {

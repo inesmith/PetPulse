@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ import PetNav from '../components/PetNav';
 import { usePets } from '../context/PetContext';
 import { useAuth } from '../context/AuthContext';
 import { addDoc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { petCol } from '../src/utils/pets'; // ← correct path
+import { petCol } from '../src/utils/pets';
 
 const { width } = Dimensions.get('window');
 const TODAY_H = 60;
@@ -97,7 +98,7 @@ export default function ActivitiesScreen() {
     return unsub;
   }, [user?.uid, petId]);
 
-  // Computed date for TODAY pill (e.g. “WED,” + “27 JULY”)
+  // TODAY pill date text
   const { dayTop, dayBottom } = useMemo(() => {
     const now = new Date();
     const weekday = now.toLocaleDateString(undefined, { weekday: 'short' });
@@ -111,7 +112,6 @@ export default function ActivitiesScreen() {
 
   const handlePickActivity = async (type: ActivityKey) => {
     if (!user?.uid) return;
-    // simple demo meta: random-ish values
     const metaSamples = [
       '2.1 km • 3,248 steps • 24 min',
       '1.3 km • 1,845 steps • 18 min',
@@ -120,19 +120,27 @@ export default function ActivitiesScreen() {
     ];
     const meta = metaSamples[Math.floor(Math.random() * metaSamples.length)];
     const col = petCol(user.uid, petId, 'activities');
-    await addDoc(col, {
-      petId,
-      type,
-      meta,
-      createdAt: serverTimestamp(),
-    } as ActivityDoc);
+    await addDoc(col, { petId, type, meta, createdAt: serverTimestamp() } as ActivityDoc);
     setPickerOpen(false);
   };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
-      <View style={{ flex: 1, backgroundColor: colors.white }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.white,
+          paddingTop: 0, // ✅ remove top white on all platforms
+        }}
+      >
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: padBottom }}
+          contentInsetAdjustmentBehavior="never"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Pet Nav */}
           <View style={{ paddingHorizontal: 22, marginTop: 200 }}>
             <PetNav />
@@ -172,7 +180,7 @@ export default function ActivitiesScreen() {
                     { backgroundColor: '#e9e8e6ff', alignItems: 'center', justifyContent: 'center', padding: 8 },
                   ]}
                 >
-                  <Ionicons name={cfg.icon} size={26} color={colors.blue} />
+                  <Ionicons name={cfg.icon} size={26} color={colors.accent} />
                   <Text style={styles.tileText} numberOfLines={2}>{cfg.title}</Text>
                 </View>
               );
@@ -188,12 +196,12 @@ export default function ActivitiesScreen() {
                 { backgroundColor: '#e9e8e6ff', alignItems: 'center', justifyContent: 'center' },
               ]}
             >
-              <Ionicons name="add" size={28} color={colors.blue} />
+              <Ionicons name="add" size={28} color={colors.accent} />
               <Text style={styles.addText}>Add Activity</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Stats (demo) */}
+          {/* Stats */}
           <View style={[styles.statCard, { borderColor: colors.accent }]}>
             <Text style={styles.statLabel}>STEPS</Text>
             <Text style={[styles.statValue, { color: colors.blue }, styles.shadow]}>70392</Text>
@@ -215,7 +223,7 @@ export default function ActivitiesScreen() {
             </ImageBackground>
           </View>
 
-          {/* Recent items (from Firestore) */}
+          {/* Recent items */}
           <Text style={[styles.sectionLabel, { marginTop: 18 }]}>RECENT ACTIVITIES</Text>
           <View style={styles.list}>
             {activities.length === 0 ? (
@@ -226,7 +234,7 @@ export default function ActivitiesScreen() {
                 const jsDate =
                   a.createdAt?.toDate?.() instanceof Date
                     ? a.createdAt.toDate()
-                    : new Date(); // fallback for serverTimestamp pending value
+                    : new Date();
                 const whenText = jsDate.toLocaleString(undefined, {
                   month: 'short',
                   day: 'numeric',
@@ -236,7 +244,7 @@ export default function ActivitiesScreen() {
                 return (
                   <View key={a.id} style={[styles.listItem, styles.listShadow]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Ionicons name={cfg.icon} size={22} color={colors.blue} />
+                      <Ionicons name={cfg.icon} size={22} color={colors.accent} />
                       <View>
                         <Text style={styles.listTitle}>{cfg.title}</Text>
                         <Text style={styles.listMeta}>

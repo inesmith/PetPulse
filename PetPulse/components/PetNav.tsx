@@ -125,16 +125,21 @@ export default function PetNav() {
 /* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
   wrap: {
-    height: STRIP_H,          // gives room for the blob
+    height: STRIP_H,
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginTop: -147,          // pull up to your header like your blob version
+    marginTop: -170,                 // 🔴 remove negative margin
+    position: 'absolute',         // ✅ stick to screen top
+    top: 0,                       // ✅ ignore safe area
+    left: 0,
+    right: 0,
+    zIndex: 20,                   // make sure it's above header
   },
 
   // big teal quarter-circle in the top-left
   blob: {
     position: 'absolute',
-    left: -width * 0.22,
+    left: -width * 0.10,
     top: -STRIP_H * 0.55,
     width: width * 0.6,
     height: width * 0.6,
@@ -151,9 +156,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginTop: 50,
 
     // nudge it a bit into the blob corner
-    marginLeft: 18,
+    marginLeft: 40,
     // optional drop shadow
     shadowColor: 'rgba(0,0,0,0.15)',
     shadowOpacity: 1,

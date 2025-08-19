@@ -9,13 +9,16 @@ import {
   ImageBackground,
   TouchableOpacity,
   Image,
+  Platform,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { config } from '../gluestack-ui.config';
 import BottomNavBar from '../components/BottomNavBar';
-import PetNav from '../components/PetNav'; // 👈 add this
+import PetNav from '../components/PetNav';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import {
@@ -42,6 +45,7 @@ const colors = {
 };
 
 const TODAY_H = 60;
+const BOTTOM_BAR_H = 88;
 
 type ReminderItem = {
   id: string;
@@ -101,6 +105,8 @@ async function ensureUserDoc(uid: string, email?: string | null, displayName?: s
 export default function HomeScreen() {
   const nav = useNavigation<any>();
   const { logout, user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const isIOS = Platform.OS === 'ios';
 
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState<boolean>(true);
@@ -152,9 +158,8 @@ export default function HomeScreen() {
     };
   }, [user?.uid]);
 
-  // --- Listen to ALL pets and collect their upcoming reminders (merged) ---
+  // --- Listen to pets and reminders ---
   useEffect(() => {
-    // cleanup any child listeners from prior runs
     childUnsubsRef.current.forEach((u) => u());
     childUnsubsRef.current = [];
     setRemindersRaw([]);
@@ -165,7 +170,6 @@ export default function HomeScreen() {
     const unsubPets = onSnapshot(
       petsCol,
       (petsSnap) => {
-        // when pet list changes, reset listeners
         childUnsubsRef.current.forEach((u) => u());
         childUnsubsRef.current = [];
         setRemindersRaw([]);
@@ -184,7 +188,6 @@ export default function HomeScreen() {
           const unsubRem = onSnapshot(
             qy,
             (remSnap) => {
-              // remove existing reminders for this pet, then add fresh ones
               setRemindersRaw((prev) => {
                 const filtered = prev.filter((r) => r.petId !== petId);
                 const rows: ReminderItem[] = remSnap.docs.map((d) => {
@@ -199,7 +202,6 @@ export default function HomeScreen() {
                   };
                 });
 
-                // merge & sort by 'when'
                 const merged = [...filtered, ...rows].sort((a, b) => {
                   const ta = a.when ? a.when.toMillis() : Number.MAX_SAFE_INTEGER;
                   const tb = b.when ? b.when.toMillis() : Number.MAX_SAFE_INTEGER;
@@ -210,7 +212,6 @@ export default function HomeScreen() {
               });
             },
             () => {
-              // on error, just drop this pet's reminders
               setRemindersRaw((prev) => prev.filter((r) => r.petId !== petId));
             }
           );
@@ -221,25 +222,22 @@ export default function HomeScreen() {
         childUnsubsRef.current = nextChildUnsubs;
       },
       () => {
-        // on error, clear children listeners
         childUnsubsRef.current.forEach((u) => u());
         childUnsubsRef.current = [];
       }
     );
 
     return () => {
-      // cleanup on unmount / uid change
       if (unsubPets) unsubPets();
       childUnsubsRef.current.forEach((u) => u());
       childUnsubsRef.current = [];
     };
   }, [user?.uid]);
 
-  // Filter OUT past-due reminders (do not show anything strictly before "now")
   const visibleReminders = useMemo(() => {
     const nowMs = nowTick;
     const future = remindersRaw.filter((r) => {
-      if (!r.when) return true; // keep undated reminders
+      if (!r.when) return true;
       return r.when.toMillis() >= nowMs;
     });
     return future
@@ -251,7 +249,6 @@ export default function HomeScreen() {
       .slice(0, 8);
   }, [remindersRaw, nowTick]);
 
-  // ---- Greeting ----
   const greetingName = useMemo(() => {
     const fromDb = (profileName ?? '').trim();
     const fromAuth = (user?.displayName ?? '').trim();
@@ -259,7 +256,6 @@ export default function HomeScreen() {
     return (fromDb || fromAuth || fallback).toUpperCase();
   }, [profileName, user?.displayName, user?.email]);
 
-  // ---- Today's date ----
   const { dayTop, dayBottom } = useMemo(() => {
     const now = new Date();
     const weekday = now.toLocaleDateString(undefined, { weekday: 'short' });
@@ -274,111 +270,122 @@ export default function HomeScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.White }]}
-      edges={['left', 'right']}
+      edges={['left', 'right']} // top handled manually
     >
-      <View style={{ flex: 1, backgroundColor: colors.White }}>
-        {/* Welcome text */}
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.welcome}>
-            WELCOME BACK,{'\n'}
-            {loadingName ? '…' : greetingName}
-          </Text>
-        </View>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-        {/* 👇 Pet selector nav */}
-        <View style={{ paddingHorizontal: 22, marginTop: 16 }}>
-          <PetNav />
-        </View>
-
-        {/* Today row: Today card + Settings square */}
-        <View style={styles.todayWrap}>
-          <View style={styles.todayRow}>
-            <View style={[styles.todayCard, styles.shadow]}>
-              <Text style={[styles.todayLeft, { color: colors.accent }]}>TODAY</Text>
-              <View style={styles.todayRight}>
-                <Text style={styles.todayRightTop}>{dayTop}</Text>
-                <Text style={styles.todayRightBottom}>{dayBottom}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => nav.navigate('UserSettings')}
-              style={[styles.settingsSquare, styles.shadow]}
-            >
-              <Ionicons name="settings" size={24} color={colors.blue} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Reminders */}
-        <Text style={styles.sectionLabel}>REMINDERS</Text>
-        <View style={styles.remindersRow}>
-          {visibleReminders.length === 0 ? (
-            <View style={[styles.reminderEmptyWrap, styles.shadow]}>
-              <Text style={styles.noRemindersText}>No upcoming reminders</Text>
-            </View>
-          ) : (
-            visibleReminders.map((r) => (
-              <View
-                key={`${r.petId}-${r.id}`}
-                style={[
-                  styles.reminderBox,
-                  styles.shadow,
-                  { backgroundColor: '#e9e8e6ff', padding: 8 },
-                ]}
-              >
-                {/* pet avatar circle */}
-                {r.petPhotoURL ? (
-                  <Image source={{ uri: r.petPhotoURL }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarFallback]}>
-                    <Text style={styles.avatarFallbackText}>
-                      {(r.petName || '?')
-                        .split(' ')
-                        .map((w) => w[0])
-                        .filter(Boolean)
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-
-                {/* title + date */}
-                <Text style={{ fontWeight: '900', color: colors.blue, fontSize: 11, marginTop: 6 }} numberOfLines={2}>
-                  {r.title}
-                </Text>
-                <Text style={{ marginTop: 4, fontSize: 10, color: '#6E6E6E' }}>
-                  {formatWhenShort(r.when)}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Steps */}
-        <View style={[styles.stepsCard, { borderColor: colors.accent }]}>
-          <Text style={styles.stepsLabel}>STEPS</Text>
-          <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]}>3478</Text>
-        </View>
-
-        {/* Map preview */}
-        <View style={[styles.mapCard, { borderColor: colors.accent }]}>
-          <ImageBackground
-            source={require('../assets/map-placeholder.png')}
-            style={styles.mapImg}
-            imageStyle={{ borderRadius: 16, opacity: 0.25 }}
-            resizeMode="cover"
-          >
-            <Text style={[styles.distanceLabel, { color: colors.accent }]}>
-              DISTANCE: 2,5 km
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.White,
+          // 🔻 remove iOS top padding so nothing white shows at the top
+          paddingTop: 0,
+          // keep space above bottom nav
+          paddingBottom: insets.bottom + BOTTOM_BAR_H + 12,
+        }}
+      >
+        <ScrollView contentInsetAdjustmentBehavior="never">
+          {/* Welcome text */}
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.welcome}>
+              WELCOME BACK,{'\n'}
+              {loadingName ? '…' : greetingName}
             </Text>
-          </ImageBackground>
-        </View>
+          </View>
 
-      {/* Floating nav */}
-      <BottomNavBar />
+          {/* Pet selector nav */}
+          <View style={{ paddingHorizontal: 22, marginTop: 16 }}>
+            <PetNav />
+          </View>
+
+          {/* Today row: Today card + Settings square */}
+          <View style={styles.todayWrap}>
+            <View style={styles.todayRow}>
+              <View style={[styles.todayCard, styles.shadow]}>
+                <Text style={[styles.todayLeft, { color: colors.accent }]}>TODAY</Text>
+                <View style={styles.todayRight}>
+                  <Text style={styles.todayRightTop}>{dayTop}</Text>
+                  <Text style={styles.todayRightBottom}>{dayBottom}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => nav.navigate('UserSettings')}
+                style={[styles.settingsSquare, styles.shadow]}
+              >
+                <Ionicons name="settings" size={24} color={colors.blue} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Reminders */}
+          <Text style={styles.sectionLabel}>REMINDERS</Text>
+          <View style={styles.remindersRow}>
+            {visibleReminders.length === 0 ? (
+              <View style={[styles.reminderEmptyWrap, styles.shadow]}>
+                <Text style={styles.noRemindersText}>No upcoming reminders</Text>
+              </View>
+            ) : (
+              visibleReminders.map((r) => (
+                <View
+                  key={`${r.petId}-${r.id}`}
+                  style={[
+                    styles.reminderBox,
+                    styles.shadow,
+                    { backgroundColor: '#e9e8e6ff', padding: 8 },
+                  ]}
+                >
+                  {r.petPhotoURL ? (
+                    <Image source={{ uri: r.petPhotoURL }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarFallback]}>
+                      <Text style={styles.avatarFallbackText}>
+                        {(r.petName || '?')
+                          .split(' ')
+                          .map((w) => w[0])
+                          .filter(Boolean)
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+
+                  <Text style={{ fontWeight: '900', color: colors.blue, fontSize: 11, marginTop: 6 }} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={{ marginTop: 4, fontSize: 10, color: '#6E6E6E' }}>
+                    {formatWhenShort(r.when)}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* Steps */}
+          <View style={[styles.stepsCard, { borderColor: colors.accent }]}>
+            <Text style={styles.stepsLabel}>STEPS</Text>
+            <Text style={[styles.stepsValue, { color: colors.blue }, styles.shadow]}>3478</Text>
+          </View>
+
+          {/* Map preview */}
+          <View style={[styles.mapCard, { borderColor: colors.accent }]}>
+            <ImageBackground
+              source={require('../assets/map-placeholder.png')}
+              style={styles.mapImg}
+              imageStyle={{ borderRadius: 16, opacity: 0.25 }}
+              resizeMode="cover"
+            >
+              <Text style={[styles.distanceLabel, { color: colors.accent }]}>
+                DISTANCE: 2,5 km
+              </Text>
+            </ImageBackground>
+          </View>
+        </ScrollView>
+
+        {/* Floating nav */}
+        <BottomNavBar />
       </View>
     </SafeAreaView>
   );
@@ -401,7 +408,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
 
-  todayWrap: { marginTop: 24, paddingHorizontal: 22 }, // tightened since PetNav is above
+  todayWrap: { marginTop: 24, paddingHorizontal: 22 },
   todayRow: { alignSelf: 'flex-end', flexDirection: 'row', gap: 6 },
   todayCard: {
     height: TODAY_H,

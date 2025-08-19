@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  StatusBar, // ✅ for Android top handling (no white band)
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,11 +39,14 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const CARD_R = 18;
 
+// Match PetNav’s blob placement
+const BLOB_TOP = -55;
+
 /* ---------- Types ---------- */
 type PetHeader = {
   name?: string;
   breed?: string;
-  gender?: string;  // 'Female' | 'Male' | 'Other'
+  gender?: string;
 };
 
 type Med = { id: string; name: string; createdAt?: any };
@@ -126,7 +130,7 @@ export default function HealthScreen() {
       }
     );
 
-    // heats (female only section, but we can subscribe anyway)
+    // heats
     const unsubHeats = onSnapshot(
       query(petCol(user.uid, petId, 'health_heats'), orderBy('createdAt', 'desc')),
       (snap) => {
@@ -136,7 +140,7 @@ export default function HealthScreen() {
       }
     );
 
-    // pregnancy status (latest wins)
+    // pregnancy status
     const unsubPreg = onSnapshot(
       query(petCol(user.uid, petId, 'health_pregnancies'), orderBy('createdAt', 'desc')),
       (snap) => {
@@ -169,46 +173,16 @@ export default function HealthScreen() {
 
   const isFemale = useMemo(() => {
     const g = (petHeader?.gender || '').toString().toLowerCase();
-    return g.startsWith('f'); // 'female' or 'f'
+    return g.startsWith('f');
   }, [petHeader?.gender]);
 
-  /* ---------- Add handlers (persist) ---------- */
-  async function addMed() {
-    if (!user?.uid) return;
-    setModal({ kind: 'med' });
-    setF1(''); // name
-    setF2('');
-  }
-  async function addVetVisit() {
-    if (!user?.uid) return;
-    setModal({ kind: 'vet' });
-    setF1(''); // date
-    setF2(''); // info
-  }
-  async function addVaccination() {
-    if (!user?.uid) return;
-    setModal({ kind: 'vacc' });
-    setF1(''); // name
-    setF2(''); // date
-  }
-  async function addHeat() {
-    if (!user?.uid) return;
-    setModal({ kind: 'heat' });
-    setF1(''); // label
-    setF2(''); // date
-  }
-  async function addPregnancy() {
-    if (!user?.uid) return;
-    setModal({ kind: 'preg' });
-    setF1(''); // status
-    setF2('');
-  }
-  async function addPregHistory() {
-    if (!user?.uid) return;
-    setModal({ kind: 'pregHistory' });
-    setF1(''); // date
-    setF2(''); // pups
-  }
+  /* ---------- Add handlers ---------- */
+  function addMed()         { setModal({ kind: 'med'  }); setF1(''); setF2(''); }
+  function addVetVisit()    { setModal({ kind: 'vet'  }); setF1(''); setF2(''); }
+  function addVaccination() { setModal({ kind: 'vacc' }); setF1(''); setF2(''); }
+  function addHeat()        { setModal({ kind: 'heat' }); setF1(''); setF2(''); }
+  function addPregnancy()   { setModal({ kind: 'preg' }); setF1(''); setF2(''); }
+  function addPregHistory() { setModal({ kind: 'pregHistory' }); setF1(''); setF2(''); }
 
   async function saveModal() {
     if (!user?.uid || !modal) return;
@@ -255,15 +229,16 @@ export default function HealthScreen() {
     }
   }
 
-  /* ---------- Render helpers ---------- */
   function rowsToShow<T>(rows: T[]) {
     if (rows.length <= 1) return rows.slice(0, 1);
-    return rows; // show all once you have > 1
+    return rows;
   }
 
-  /* ---------- UI ---------- */
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
+      {/* No top white: draw under status bar on Android */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+
       <View style={{ flex: 1, backgroundColor: colors.white }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -274,7 +249,10 @@ export default function HealthScreen() {
             contentContainerStyle={{ paddingBottom: padBottom }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Pet Nav */}
+            {/* Blob aligned like PetNav */}
+            <View style={styles.blob} pointerEvents="none" />
+
+            {/* Pet Nav (absolute inside itself; we offset flow so it doesn't overlap others) */}
             <View style={{ paddingHorizontal: 22, marginTop: 200 }}>
               <PetNav />
             </View>
@@ -413,7 +391,6 @@ export default function HealthScreen() {
               : ''}
           </Text>
 
-          {/* Fields vary slightly by kind */}
           {modal?.kind === 'med' && (
             <>
               <Text style={m.label}>Medication Name</Text>
@@ -587,6 +564,7 @@ function IconBtn({ onPress }: { onPress: () => void }) {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
 
+  // Header text block to the right (mirrors other screens)
   headerTopRow: {
     marginTop: -75,
     flexDirection: 'row',
@@ -656,6 +634,18 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
+  },
+
+  // 🔵 Blob aligned exactly like PetNav’s
+  blob: {
+    position: 'absolute',
+    left: -width * 0.10,
+    top: BLOB_TOP, // -55
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: colors.blue,
+    alignSelf: 'flex-start',
   },
 });
 

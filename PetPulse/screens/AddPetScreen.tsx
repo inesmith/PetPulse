@@ -1,9 +1,21 @@
 // screens/AddPetScreen.tsx
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Dimensions, TextInput, ScrollView,
-  KeyboardAvoidingView, Platform, TouchableOpacity, Alert, ActivityIndicator,
-  Image, Modal, Pressable,
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  StatusBar, // ✅ remove Android top white by drawing under status bar
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +41,9 @@ const colors = {
 const ROW_R = 18;
 const PHOTO_SIDE = 96;
 
+// ✅ Match the PetNav blob placement exactly
+const BLOB_TOP = -55;
+
 export default function AddPetScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -37,7 +52,7 @@ export default function AddPetScreen() {
 
   const padBottom = 64 + Math.max(insets.bottom, 8) + 24;
 
-  // Form state (same fields as settings)
+  // Form state
   const [name, setName]                 = useState('');
   const [breed, setBreed]               = useState('');
   const [dob, setDob]                   = useState(''); // YYYY-MM-DD
@@ -55,7 +70,7 @@ export default function AddPetScreen() {
   const [photoLocal, setPhotoLocal]     = useState<string | null>(null);
 
   // Popups
-  const [photoMenuOpen, setPhotoMenuOpen]     = useState(false);
+  const [photoMenuOpen, setPhotoMenuOpen]       = useState(false);
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -63,25 +78,25 @@ export default function AddPetScreen() {
   const headerName = useMemo(() => 'ADD YOUR PET', []);
   const headerSub  = useMemo(() => (breed || '').toUpperCase(), [breed]);
 
-  // New ImagePicker API (no deprecation warning)
+  // ✅ Up-to-date ImagePicker API
   const pickImage = async () => {
-  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (perm.status !== 'granted') {
-    Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
-    return;
-  }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
+      return;
+    }
 
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ your version supports this
-    allowsEditing: true,
-    aspect: [1, 1],                                   // ✅ not "aspects"
-    quality: 0.85,
-  });
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
 
-  if (!res.canceled && res.assets?.[0]?.uri) {
-    setPhotoLocal(res.assets[0].uri);
-  }
-};
+    if (!res.canceled && res.assets?.[0]?.uri) {
+      setPhotoLocal(res.assets[0].uri);
+    }
+  };
 
   const onSave = async () => {
     if (!user?.uid) return;
@@ -123,7 +138,7 @@ export default function AddPetScreen() {
 
       await setDoc(doc(db, 'users', user.uid, 'pets', newId), { ...payload, ...photoFields }, { merge: true });
 
-      // Make the newly created pet the selected one (so PetNav switches)
+      // Make the newly created pet the selected one
       setSelectedPetId(newId);
 
       Alert.alert('Saved', 'Pet created.');
@@ -140,16 +155,25 @@ export default function AddPetScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
+      {/* ✅ Draw under status bar to remove Android top white */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={80}
+      >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-          {/* Header */}
+          {/* 🔵 Blob in the exact same position as PetNav */}
+          <View style={styles.blob} pointerEvents="none" />
+
+          {/* Header (right aligned, like other screens) */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerName}>{headerName}</Text>
             {!!headerSub && <Text style={styles.headerSub}>{headerSub}</Text>}
           </View>
 
-          {/* Photo */}
-          <Text style={styles.sectionLabel}>PHOTO</Text>
+          {/* Profile photo — sits like on PetSettings (overlaps into blob area) */}
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -178,30 +202,69 @@ export default function AddPetScreen() {
           <View style={styles.sectionPad}>
             <LabeledInputRow label="NAME"  value={name}  onChangeText={setName} />
             <LabeledInputRow label="BREED" value={breed} onChangeText={setBreed} />
-            <LabeledInputRow label="DATE OF BIRTH" value={dob} onChangeText={setDob} placeholder="YYYY-MM-DD (recommended)" autoCapitalize="none" />
+            <LabeledInputRow
+              label="DATE OF BIRTH"
+              value={dob}
+              onChangeText={setDob}
+              placeholder="YYYY-MM-DD (recommended)"
+              autoCapitalize="none"
+            />
           </View>
 
           {/* Measurements */}
           <SectionLabel label="MEASUREMENTS" />
           <View style={styles.sectionPad}>
-            <LabeledInputRow label="HEIGHT (CM)" value={height} onChangeText={(t)=>setHeight(t.replace(/[^0-9.]/g,''))} keyboardType="number-pad" placeholder="e.g. 60" />
-            <LabeledInputRow label="WEIGHT (KG)" value={weight} onChangeText={(t)=>setWeight(t.replace(/[^0-9.]/g,''))} keyboardType="number-pad" placeholder="e.g. 35" />
+            <LabeledInputRow
+              label="HEIGHT (CM)"
+              value={height}
+              onChangeText={(t)=>setHeight(t.replace(/[^0-9.]/g,''))}
+              keyboardType="number-pad"
+              placeholder="e.g. 60"
+            />
+            <LabeledInputRow
+              label="WEIGHT (KG)"
+              value={weight}
+              onChangeText={(t)=>setWeight(t.replace(/[^0-9.]/g,''))}
+              keyboardType="number-pad"
+              placeholder="e.g. 35"
+            />
           </View>
 
           {/* Appearance & Gender */}
           <SectionLabel label="APPEARANCE" />
           <View style={styles.sectionPad}>
-            <ChipRow label="SIZE" options={['XS','S','M','L','XL'] as const} value={size} onChange={(v)=>setSize(v)} />
+            <ChipRow
+              label="SIZE"
+              options={['XS','S','M','L','XL'] as const}
+              value={size}
+              onChange={(v)=>setSize(v)}
+            />
             <LabeledInputRow label="COLOUR" value={colour} onChangeText={setColour} />
-            <ChipRow label="GENDER" options={['Female','Male','Other'] as const} value={gender} onChange={(v)=>setGender(v)} />
+            <ChipRow
+              label="GENDER"
+              options={['Female','Male','Other'] as const}
+              value={gender}
+              onChange={(v)=>setGender(v)}
+            />
           </View>
 
           {/* Microchip */}
           <SectionLabel label="MICROCHIP" />
           <View style={styles.sectionPad}>
-            <ChipRow label="HAS CHIP" options={['Yes','No'] as const} value={hasChip} onChange={(v)=>setHasChip(v)} />
+            <ChipRow
+              label="HAS CHIP"
+              options={['Yes','No'] as const}
+              value={hasChip}
+              onChange={(v)=>setHasChip(v)}
+            />
             {hasChip === 'Yes' && (
-              <LabeledInputRow label="CHIP DETAILS" value={chipDetails} onChangeText={setChipDetails} placeholder="Number / Registry / Notes" autoCapitalize="characters" />
+              <LabeledInputRow
+                label="CHIP DETAILS"
+                value={chipDetails}
+                onChangeText={setChipDetails}
+                placeholder="Number / Registry / Notes"
+                autoCapitalize="characters"
+              />
             )}
           </View>
 
@@ -223,26 +286,45 @@ export default function AddPetScreen() {
 
           {/* Save */}
           <View style={styles.sectionPad}>
-            <TouchableOpacity activeOpacity={0.9} onPress={onSave} style={[styles.saveBtn, styles.cardShadow, saving && { opacity: 0.6 }]} disabled={saving}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onSave}
+              style={[styles.saveBtn, styles.cardShadow, saving && { opacity: 0.6 }]}
+              disabled={saving}
+            >
               {saving ? <ActivityIndicator /> : <Text style={styles.saveText}>Create Pet</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Photo menu */}
-      <Modal visible={photoMenuOpen} transparent animationType="fade" onRequestClose={() => setPhotoMenuOpen(false)}>
+      {/* --- Photo menu modal --- */}
+      <Modal
+        visible={photoMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoMenuOpen(false)}
+      >
         <View style={m.overlay}>
           <View style={[m.card, styles.cardShadow]}>
             <Text style={m.title}>Photo</Text>
+
             {hasAnyPhoto && (
-              <Pressable style={m.item} onPress={() => { setPhotoMenuOpen(false); setPhotoPreviewOpen(true); }}>
+              <Pressable
+                style={m.item}
+                onPress={() => { setPhotoMenuOpen(false); setPhotoPreviewOpen(true); }}
+              >
                 <Text style={m.itemText}>View Image</Text>
               </Pressable>
             )}
-            <Pressable style={m.item} onPress={async () => { setPhotoMenuOpen(false); await pickImage(); }}>
+
+            <Pressable
+              style={m.item}
+              onPress={async () => { setPhotoMenuOpen(false); await pickImage(); }}
+            >
               <Text style={m.itemText}>{hasAnyPhoto ? 'Upload New Image' : 'Upload Image'}</Text>
             </Pressable>
+
             <Pressable style={[m.item, m.cancel]} onPress={() => setPhotoMenuOpen(false)}>
               <Text style={[m.itemText, { color: '#6E6E6E' }]}>Cancel</Text>
             </Pressable>
@@ -250,8 +332,13 @@ export default function AddPetScreen() {
         </View>
       </Modal>
 
-      {/* Fullscreen preview */}
-      <Modal visible={photoPreviewOpen} transparent animationType="fade" onRequestClose={() => setPhotoPreviewOpen(false)}>
+      {/* --- Fullscreen preview modal --- */}
+      <Modal
+        visible={photoPreviewOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoPreviewOpen(false)}
+      >
         <View style={pv.overlay}>
           <Pressable style={pv.backdrop} onPress={() => setPhotoPreviewOpen(false)} />
           <View style={[pv.inner, styles.cardShadow]}>
@@ -272,13 +359,23 @@ export default function AddPetScreen() {
   );
 }
 
-/* ---------- Subcomponents (same as settings) ---------- */
-function SectionLabel({ label }: { label: string }) { return <Text style={styles.sectionLabel}>{label}</Text>; }
+/* ---------- Subcomponents ---------- */
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
+}
 
 function LabeledInputRow({
-  label, value, onChangeText, keyboardType, autoCapitalize, placeholder,
+  label,
+  value,
+  onChangeText,
+  keyboardType,
+  autoCapitalize,
+  placeholder,
 }: {
-  label: string; value: string; onChangeText: (t: string) => void;
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
   keyboardType?: 'default' | 'email-address' | 'number-pad' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   placeholder?: string;
@@ -299,8 +396,16 @@ function LabeledInputRow({
   );
 }
 
-function ChipRow<T extends string>({ label, options, value, onChange }:{
-  label: string; options: readonly T[]; value: T | ''; onChange: (v:T)=>void;
+function ChipRow<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly T[];
+  value: T | '';
+  onChange: (v: T) => void;
 }) {
   return (
     <View style={[styles.row, { borderColor: colors.accent, justifyContent: 'space-between' }]}>
@@ -309,7 +414,12 @@ function ChipRow<T extends string>({ label, options, value, onChange }:{
         {options.map(opt => {
           const active = value === opt;
           return (
-            <TouchableOpacity key={opt} onPress={()=>onChange(opt)} activeOpacity={0.85} style={[styles.chip, active && styles.chipActive]}>
+            <TouchableOpacity
+              key={opt}
+              onPress={() => onChange(opt)}
+              activeOpacity={0.85}
+              style={[styles.chip, active && styles.chipActive]}
+            >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt}</Text>
             </TouchableOpacity>
           );
@@ -323,61 +433,106 @@ function ChipRow<T extends string>({ label, options, value, onChange }:{
 const styles = StyleSheet.create({
   safe: { flex: 1 },
 
+  // Header spacing mirrors other screens (content sits below the blob)
   headerTextWrap: { marginTop: 125, alignItems: 'flex-end', paddingHorizontal: 22 },
   headerName: { fontSize: 26, fontWeight: '900', letterSpacing: 0.4, color: colors.text, textAlign: 'right', lineHeight: 28 },
   headerSub: { fontSize: 12, color: '#6E6E6E', marginTop: 2, textAlign: 'right' },
 
-  /* Photo */
+  // 🔵 Blob matches PetNav placement
+  blob: {
+    position: 'absolute',
+    left: -width * 0.10,
+    top: -30,          
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: colors.blue,
+    alignSelf: 'flex-start',
+  },
+
+  /* Photo (same feel as PetSettings — near the blob) */
   photoFrame: {
-    width: PHOTO_SIDE, height: PHOTO_SIDE, borderRadius: PHOTO_SIDE / 2, overflow: 'hidden',
-    backgroundColor: colors.grey, borderWidth: 1.5, borderColor: colors.accent, alignSelf: 'flex-start',
+    width: PHOTO_SIDE,
+    height: PHOTO_SIDE,
+    borderRadius: PHOTO_SIDE / 2,
+    overflow: 'hidden',
+    backgroundColor: colors.grey,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    marginLeft: 10,
+    marginTop: -105, // pull into blob area like PetSettings
   },
   photoImg: { width: '100%', height: '100%' },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
 
   pillWrap: { marginTop: 24, paddingHorizontal: 22 },
   pill: {
-    height: 56, borderRadius: 28, backgroundColor: colors.grey, alignItems: 'center',
-    justifyContent: 'center', alignSelf: 'flex-end', paddingHorizontal: 50, marginBottom: 32,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.grey,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 50,
+    marginBottom: 32,
   },
   pillText: { fontWeight: '900', fontSize: 18, letterSpacing: 0.3 },
 
-  sectionLabel: { marginTop: 18, color: '#6E6E6E', fontWeight: '900', paddingHorizontal: 22, letterSpacing: 0.2, marginBottom: 10 },
+  sectionLabel: {
+    marginTop: 18,
+    color: '#6E6E6E',
+    fontWeight: '900',
+    paddingHorizontal: 22,
+    letterSpacing: 0.2,
+    marginBottom: 10,
+  },
   sectionPad: { paddingHorizontal: 22, marginTop: 0 },
 
   row: {
-    minHeight: 58, borderRadius: ROW_R, borderWidth: 1.5, backgroundColor:'transparent',
-    paddingHorizontal: 16, marginBottom: 12, flexDirection:'row', alignItems:'center',
+    minHeight: 58,
+    borderRadius: ROW_R,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cellLeft: { flex: 1.2, fontWeight:'800', color:'#6E6E6E' },
-  cellInputRight: { flex: 0.9, fontWeight:'700', color: colors.text, textAlign:'right', paddingVertical:10 },
+  cellLeft: { flex: 1.2, fontWeight: '800', color: '#6E6E6E' },
+  cellInputRight: { flex: 0.9, fontWeight: '700', color: colors.text, textAlign: 'right', paddingVertical: 10 },
 
-  chipsWrap:{ flexDirection:'row', gap:8 },
-  chip:{ paddingHorizontal:12, height:34, borderRadius:17, borderWidth:0, alignItems:'center', justifyContent:'center', backgroundColor:'transparent' },
-  chipActive:{ backgroundColor: colors.grey, borderWidth:1.5, borderColor: colors.accent },
-  chipText:{ fontWeight:'800', color:'#6E6E6E', fontSize:12 },
-  chipTextActive:{ color: colors.blue },
+  chipsWrap: { flexDirection: 'row', gap: 8 },
+  chip: { paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
+  chipActive: { backgroundColor: colors.grey, borderWidth: 1.5, borderColor: colors.accent },
+  chipText: { fontWeight: '800', color: '#6E6E6E', fontSize: 12 },
+  chipTextActive: { color: colors.blue },
 
-  saveBtn:{ height:54, borderRadius:16, backgroundColor: colors.white, alignItems:'center', justifyContent:'center' },
-  saveText:{ color: colors.blue, fontWeight:'900', fontSize:16, letterSpacing:0.3 },
+  saveBtn: { height: 54, borderRadius: 16, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  saveText: { color: colors.blue, fontWeight: '900', fontSize: 16, letterSpacing: 0.3 },
 
-  cardShadow:{ shadowColor:'rgba(0,0,0,0.15)', shadowOpacity:1, shadowRadius:12, shadowOffset:{width:0,height:8}, elevation:6 },
+  cardShadow: {
+    shadowColor: 'rgba(0,0,0,0.15)',
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
 });
 
 const m = StyleSheet.create({
-  overlay:{ flex:1, backgroundColor:'rgba(0,0,0,0.35)', alignItems:'center', justifyContent:'center', padding:20 },
-  card:{ width:'100%', borderRadius:16, backgroundColor:'#fff', padding:12 },
-  title:{ fontWeight:'900', fontSize:16, marginBottom:6, color:'#1C1C1C' },
-  item:{ paddingVertical:12, paddingHorizontal:8, borderRadius:10 },
-  itemText:{ fontWeight:'800', color:'#1C1C1C' },
-  cancel:{ backgroundColor:'#F4F4F4', marginTop:4, alignItems:'center' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  card: { width: '100%', borderRadius: 16, backgroundColor: '#fff', padding: 12 },
+  title: { fontWeight: '900', fontSize: 16, marginBottom: 6, color: '#1C1C1C' },
+  item: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10 },
+  itemText: { fontWeight: '800', color: '#1C1C1C' },
+  cancel: { backgroundColor: '#F4F4F4', marginTop: 4, alignItems: 'center' },
 });
 
 const pv = StyleSheet.create({
-  overlay:{ flex:1, backgroundColor:'rgba(0,0,0,0.5)', alignItems:'center', justifyContent:'center' },
-  backdrop:{ ...StyleSheet.absoluteFillObject },
-  inner:{ width: width - 44, borderRadius:16, backgroundColor:'#fff', overflow:'hidden' },
-  previewImg:{ width:'100%', height:(width - 44) * 1.05 },
-  closeBtn:{ paddingVertical:12, alignItems:'center', backgroundColor:'#F4F4F4' },
-  closeText:{ fontWeight:'900', color:'#1C1C1C' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  inner: { width: width - 44, borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden' },
+  previewImg: { width: '100%', height: (width - 44) * 1.05 },
+  closeBtn: { paddingVertical: 12, alignItems: 'center', backgroundColor: '#F4F4F4' },
+  closeText: { fontWeight: '900', color: '#1C1C1C' },
 });

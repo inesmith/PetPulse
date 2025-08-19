@@ -1,6 +1,22 @@
 // screens/PetSettingsScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TextInput, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Pressable, } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  StatusBar, // ✅ remove Android top-white & draw under status bar
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -26,6 +42,9 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const ROW_R = 18;
 const PHOTO_SIDE = 80;
+
+// Match PetNav’s blob position
+const BLOB_TOP = -55;
 
 export default function PetSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -106,11 +125,11 @@ export default function PetSettingsScreen() {
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
-  mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ use the enum
-  allowsEditing: true,
-  aspect: [1, 1],
-  quality: 0.85,
-});
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
     if (!res.canceled && res.assets?.[0]?.uri) {
       setPhotoLocal(res.assets[0].uri);
     }
@@ -169,12 +188,20 @@ export default function PetSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
+      {/* draw under the status bar on Android to avoid any top-white */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={80}
       >
-        <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: padBottom }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 🔵 Blob aligned exactly like PetNav */}
+          <View style={styles.blob} pointerEvents="none" />
+
           {/* Header */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerName}>{loading ? '…' : headerName}</Text>
@@ -182,7 +209,6 @@ export default function PetSettingsScreen() {
           </View>
 
           {/* --- Photo Section (circle is clickable) --- */}
-          <View style={styles.blob} pointerEvents="none" />
           <View style={styles.sectionPad}>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -484,14 +510,15 @@ const styles = StyleSheet.create({
   },
   sectionPad: { paddingHorizontal: 22, marginTop: 0 },
 
+  // 🔵 Blob aligned with PetNav (same geometry)
   blob: {
     position: 'absolute',
-    left: -75,
-    top: -10,
+    left: -width * 0.10,
+    top: -30,               
     width: width * 0.6,
     height: width * 0.6,
     borderBottomRightRadius: width,
-    backgroundColor: '#73C3D7',
+    backgroundColor: colors.blue,
     alignSelf: 'flex-start',
   },
 

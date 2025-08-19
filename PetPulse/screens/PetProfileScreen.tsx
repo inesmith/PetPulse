@@ -14,6 +14,7 @@ import {
   Modal,
   Pressable,
   Alert,
+  StatusBar, // ✅ added
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +41,9 @@ const colors = {
 const HEADER_H = 330;
 const NAV_HEIGHT = 64;
 const NAV_MARGIN = 8;
+// 👇 used only to guarantee enough scroll space beneath the floating nav
+const BOTTOM_BAR_H = 88;
+
 const NAME_H = 72;
 const NAME_GAP = 6;
 
@@ -85,7 +89,11 @@ export default function PetProfileScreen() {
   const { user } = useAuth();
   const { selectedPet, selectedPetId = 'primary' } = usePets();
 
-  const contentBottomPad = NAV_HEIGHT + Math.max(insets.bottom, NAV_MARGIN) + 16;
+  // Keep your original spacing, but ensure we always have *at least* enough bottom room
+  const contentBottomPad = Math.max(
+    NAV_HEIGHT + Math.max(insets.bottom, NAV_MARGIN) + 16,
+    insets.bottom + BOTTOM_BAR_H + 12
+  );
 
   const [pet, setPet] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -186,6 +194,9 @@ export default function PetProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left', 'right']}>
+      {/* match HomeScreen behavior so Android doesn’t steal layout space */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />{/* ✅ */}
+
       <View style={[styles.container, { backgroundColor: colors.white }]}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}

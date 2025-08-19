@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  StatusBar, // ✅ draw under status bar to remove top white on Android
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,15 +48,17 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const ROW_R = 18;
 
-/* ---------- helpers ---------- */
+// Match PetNav blob placement exactly
+const BLOB_TOP = -55;
+
 function slugUsername(input: string) {
   return input
-    .normalize('NFD')                 // split accents
-    .replace(/[\u0300-\u036f]/g, '')  // remove accents
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9._ -]/g, '')    // allow letters/digits/._- and spaces
+    .replace(/[^a-z0-9._ -]/g, '')
     .trim()
-    .replace(/\s+/g, '-');            // spaces -> hyphen
+    .replace(/\s+/g, '-');
 }
 
 export default function UserSettingsScreen() {
@@ -71,7 +74,7 @@ export default function UserSettingsScreen() {
 
   // Form fields
   const [fullName, setFullName] = useState('');
-  const [userName, setUserName] = useState(''); // editable handle (pretty)
+  const [userName, setUserName] = useState('');
   const [email, setEmail]       = useState('');
   const [phone, setPhone]       = useState('');
   const [age, setAge]           = useState('');
@@ -81,7 +84,6 @@ export default function UserSettingsScreen() {
   const [initialUsername, setInitialUsername] = useState<string>('');
   const [initialEmail, setInitialEmail]       = useState<string>('');
 
-  /* --------- Load user profile from Firestore --------- */
   useEffect(() => {
     if (!user?.uid) return;
     const ref = doc(db, 'users', user.uid);
@@ -127,7 +129,6 @@ export default function UserSettingsScreen() {
     return n.toUpperCase();
   }, [fullName, userName, email]);
 
-  /* --------- Save profile --------- */
   const onSave = async () => {
     if (!user?.uid) return;
     if (saving) return;
@@ -141,7 +142,6 @@ export default function UserSettingsScreen() {
       return;
     }
 
-    // username rules
     const newSlug = slugUsername(trimmedUserName);
     const oldSlug = slugUsername(initialUsername);
     if (!newSlug) {
@@ -155,7 +155,7 @@ export default function UserSettingsScreen() {
 
     setSaving(true);
     try {
-      // 1) If username changed, update usernames mapping atomically
+      // usernames mapping
       if (newSlug !== oldSlug) {
         await runTransaction(db, async (tx) => {
           const newRef = doc(db, 'usernames', newSlug);
@@ -164,11 +164,7 @@ export default function UserSettingsScreen() {
           if (newSnap.exists() && (newSnap.data() as any).uid !== user.uid) {
             throw new Error('That username is taken. Please choose another.');
           }
-
-          // reserve new
           tx.set(newRef, { uid: user.uid });
-
-          // release old (rules must allow owner delete)
           if (oldSlug) {
             const oldRef = doc(db, 'usernames', oldSlug);
             tx.delete(oldRef);
@@ -176,23 +172,19 @@ export default function UserSettingsScreen() {
         });
       }
 
-      // 2) Update Auth profile (displayName shown across Auth UIs)
+      // Auth profile
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedFullName || trimmedUserName });
       }
 
-      // 3) If email changed, try to update Auth email
+      // Auth email
       if (trimmedEmail !== initialEmail) {
         try {
           if (!auth.currentUser) throw new Error('Not signed in');
           await updateEmail(auth.currentUser, trimmedEmail);
         } catch (e: any) {
-          const code = e?.code || '';
-          if (code === 'auth/requires-recent-login') {
-            Alert.alert(
-              'Re-authentication needed',
-              'For security, please log in again to change your email.'
-            );
+          if (e?.code === 'auth/requires-recent-login') {
+            Alert.alert('Re-authentication needed', 'For security, please log in again to change your email.');
             throw e;
           } else {
             throw e;
@@ -200,12 +192,12 @@ export default function UserSettingsScreen() {
         }
       }
 
-      // 4) Update Firestore profile document
+      // Firestore profile
       await setDoc(
         doc(db, 'users', user.uid),
         {
-          displayName: trimmedFullName,      // pretty full name
-          username: newSlug,                 // handle/slug
+          displayName: trimmedFullName,
+          username: newSlug,
           email: auth.currentUser?.email ?? trimmedEmail,
           phone: phone.trim(),
           age: age.trim(),
@@ -215,12 +207,10 @@ export default function UserSettingsScreen() {
         { merge: true }
       );
 
-      // 5) Refresh Auth object (so displayName/email are current if used elsewhere)
       if (auth.currentUser) {
         try { await auth.currentUser.reload(); } catch {}
       }
 
-      // 6) Optimistically update local state so headers/UI reflect changes immediately
       setInitialUsername(trimmedUserName);
       setInitialEmail(auth.currentUser?.email ?? trimmedEmail);
       setFullName(trimmedFullName);
@@ -263,14 +253,16 @@ export default function UserSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
+      {/* ✅ Remove Android “top white” and draw content under the status bar */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={80}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-
-          {/* Blob */}
+          {/* 🔵 Blob aligned to PetNav */}
           <View style={styles.blob} pointerEvents="none" />
 
           {/* Header */}
@@ -353,9 +345,7 @@ export default function UserSettingsScreen() {
 /* ---------- Subcomponents ---------- */
 
 function SectionLabel({ label }: { label: string }) {
-  return (
-    <Text style={styles.sectionLabel}>{label}</Text>
-  );
+  return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function LabeledInputRow({
@@ -420,6 +410,7 @@ function GenderRow({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+
   headerTextWrap: {
     marginTop: 125,
     alignItems: 'flex-end',
@@ -457,6 +448,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionPad: { paddingHorizontal: 22, marginTop: 0 },
+
+  // 🔵 Blob aligned with PetNav (same geometry)
+  blob: {
+    position: 'absolute',
+    left: -width * 0.10,
+    top: -30,        
+    width: width * 0.6,
+    height: width * 0.6,
+    borderBottomRightRadius: width,
+    backgroundColor: colors.blue,
+    alignSelf: 'flex-start',
+  },
 
   row: {
     height: 58,
@@ -506,17 +509,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.3,
-  },
-
-  blob: {
-    position: 'absolute',
-    left: -75,
-    top: -10,
-    width: width * 0.6,
-    height: width * 0.6,
-    borderBottomRightRadius: width,
-    backgroundColor: "#73C3D7",
-    alignSelf: 'flex-start',
   },
 
   cardShadow: {

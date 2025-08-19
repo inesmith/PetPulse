@@ -1,6 +1,14 @@
 // screens/RewardsScreen.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, Platform, } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  ScrollView,
+  Platform,
+  StatusBar, // ✅ added for Android top handling
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../gluestack-ui.config';
@@ -19,6 +27,10 @@ const NAV_H = 64;
 const NAV_MARGIN = 8;
 const ROW_RADIUS = 18;
 
+// Match PetNav placement:
+// PetNav uses STRIP_H = 100 and top: -STRIP_H * 0.55 => -55, left: -width * 0.10
+const BLOB_TOP = -55;
+
 export default function RewardsScreen() {
   const insets = useSafeAreaInsets();
   const padBottom = NAV_H + Math.max(insets.bottom, NAV_MARGIN) + 16;
@@ -36,12 +48,18 @@ export default function RewardsScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
-      <View style={{ flex: 1, backgroundColor: colors.white }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: padBottom }}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left', 'right']}>
+      {/* Draw content under the status bar so there’s NO top white band on Android */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
+      <View style={{ flex: 1, backgroundColor: colors.white }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: padBottom }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Blob aligned exactly like PetNav’s blob */}
           <View style={styles.blob} pointerEvents="none" />
-          
+
           {/* Header */}
           <View style={styles.headerTextWrap}>
             <Text style={styles.welcome}>HEY LOOK,{'\n'}YOU'VE MADE IT</Text>
@@ -57,7 +75,7 @@ export default function RewardsScreen() {
           {/* Earned Rewards — styled like Recent Activities list */}
           <Text style={styles.sectionLabel}>EARNED REWARDS</Text>
           <View style={styles.list}>
-            {earned.map(item => (
+            {earned.map((item) => (
               <View key={item.id} style={[styles.listItem, styles.listShadow]}>
                 <View>
                   <Text style={styles.listTitle}>{item.name}</Text>
@@ -73,10 +91,14 @@ export default function RewardsScreen() {
           {/* Next Reward section */}
           <Text style={[styles.sectionLabel, { marginTop: 30 }]}>NEXT REWARD</Text>
           <View style={{ paddingHorizontal: 22 }}>
-            {upcoming.map(u => (
+            {upcoming.map((u) => (
               <View key={u.id} style={[styles.row, { borderColor: colors.accent }]}>
-                <Text style={styles.cellLeft} numberOfLines={1}>{u.name}</Text>
-                <Text style={styles.cellRight} numberOfLines={1}>{`${u.pct}%`}</Text>
+                <Text style={styles.cellLeft} numberOfLines={1}>
+                  {u.name}
+                </Text>
+                <Text style={styles.cellRight} numberOfLines={1}>
+                  {`${u.pct}%`}
+                </Text>
               </View>
             ))}
           </View>
@@ -152,7 +174,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cellLeft:  { flex: 1.2, fontWeight: '800', color: '#6E6E6E' },
+  cellLeft: { flex: 1.2, fontWeight: '800', color: '#6E6E6E' },
   cellRight: { flex: 0.9, fontWeight: '700', color: '#6E6E6E', textAlign: 'right' },
 
   /* Shadows */
@@ -170,14 +192,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-   blob: {
+
+  // ✅ Blob aligned with PetNav blob (same placement math)
+  blob: {
     position: 'absolute',
-    left: -75,
-    top: -10,
+    left: -width * 0.10,
+    top: -30, 
     width: width * 0.6,
     height: width * 0.6,
     borderBottomRightRadius: width,
-    backgroundColor: "#73C3D7",
+    backgroundColor: colors.blue,
     alignSelf: 'flex-start',
   },
 });
