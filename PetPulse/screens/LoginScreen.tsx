@@ -1,26 +1,36 @@
-// screens/LoginScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Dimensions, Alert, ActivityIndicator, } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { config } from '../gluestack-ui.config';
 import { loginUser, resetPassword } from '../services/authService';
+import { auth } from '../firebase';
+import { fetchSignInMethodsForEmail } from 'firebase/auth';
 
 const { width } = Dimensions.get('window');
 
 const colors = {
-  blue: (config as any)?.theme?.colors?.blue ?? '#73C3D1',
-  white: (config as any)?.theme?.colors?.white ?? '#F8F7F4',
-  accent: (config as any)?.theme?.colors?.o ?? '#EE734A',
+  blue:   (config as any)?.theme?.colors?.blue  ?? '#73C3D1',
+  white:  (config as any)?.theme?.colors?.white ?? '#F8F7F4',
+  accent: (config as any)?.theme?.colors?.o     ?? '#EE734A',
 };
 
 export default function LoginScreen({ navigation }: any) {
   const [emailOrUsername, setEmailOrUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [password, setPassword]               = useState('');
+  const [busy, setBusy]                       = useState(false);
 
   const handleLogin = async () => {
-    // Using email for auth. If you want username login, add a username->email lookup.
-    const email = emailOrUsername.trim();
+    const email = emailOrUsername.trim().toLowerCase();
     if (!email || !password) {
       Alert.alert('Missing info', 'Please enter email and password.');
       return;
@@ -28,10 +38,43 @@ export default function LoginScreen({ navigation }: any) {
 
     try {
       setBusy(true);
+
+      // ✅ Proactively check if an account exists for this email
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      if (!methods || methods.length === 0) {
+        setBusy(false);
+        Alert.alert(
+          'No account found',
+          'It looks like you don’t have an account yet. Would you like to sign up?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign Up', onPress: () => navigation.navigate('Signup') },
+          ]
+        );
+        return;
+      }
+
+      // Proceed to login if the email exists
       await loginUser(email, password);
-      // AuthProvider will switch to the protected stack automatically
+      // AuthProvider will switch to the protected stack on success
     } catch (e: any) {
-      Alert.alert('Login failed', e?.message ?? 'Check your credentials and try again.');
+      const code = e?.code || '';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        Alert.alert(
+          'Incorrect password',
+          'Email is correct but the password is wrong. You can reset it.',
+          [
+            { text: 'Reset password', onPress: () => resetPassword(email) },
+            { text: 'OK' },
+          ]
+        );
+      } else if (code === 'auth/invalid-email') {
+        Alert.alert('Invalid email', 'Please enter a valid email address.');
+      } else if (code === 'auth/too-many-requests') {
+        Alert.alert('Too many attempts', 'Please wait a moment and try again.');
+      } else {
+        Alert.alert('Login failed', e?.message ?? 'Please try again.');
+      }
     } finally {
       setBusy(false);
     }
@@ -40,7 +83,7 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.white }]}
-      edges={['top']} // Only top safe area to avoid bottom white box
+      edges={['top']}
     >
       {/* TOP: logo + headings */}
       <View style={styles.top}>
@@ -57,7 +100,6 @@ export default function LoginScreen({ navigation }: any) {
 
       {/* BOTTOM: solid blue with wave overlay */}
       <View style={[styles.bottom, { backgroundColor: colors.blue }]}>
-        {/* Wave overlay — white “cutout” */}
         <Image
           source={require('../assets/Vector1.png')}
           style={styles.wave}
@@ -90,15 +132,11 @@ export default function LoginScreen({ navigation }: any) {
           />
 
           <TouchableOpacity
-            style={styles.continueBtn}
+            style={[styles.continueBtn, busy && { opacity: 0.7 }]}
             onPress={handleLogin}
             disabled={busy}
           >
-            {busy ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={styles.continueBtnText}>Log In</Text>
-            )}
+            {busy ? <ActivityIndicator /> : <Text style={styles.continueBtnText}>Log In</Text>}
           </TouchableOpacity>
 
           <View style={styles.signupRow}>
@@ -107,9 +145,7 @@ export default function LoginScreen({ navigation }: any) {
               <Text style={styles.signupLink}>Sign Up</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => resetPassword(emailOrUsername)}>
-                <Text style={styles.forgotPassword}>
-                Forgot password?
-                </Text>
+              <Text style={styles.forgotPassword}>Forgot password?</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -117,6 +153,8 @@ export default function LoginScreen({ navigation }: any) {
     </SafeAreaView>
   );
 }
+
+const { width: W } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
@@ -148,7 +186,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -50,
     left: 0,
-    width: width,
+    width: W,
     height: 400,
     tintColor: '#73C3D1',
     zIndex: 1,
