@@ -7,7 +7,7 @@ import {
   Dimensions,
   ScrollView,
   Platform,
-  StatusBar, // ✅ added for Android top handling
+  StatusBar, 
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,7 +57,7 @@ export default function RewardsScreen() {
           contentContainerStyle={{ paddingBottom: padBottom }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Blob aligned exactly like PetNav’s blob */}
+          {/* Blob */}
           <View style={styles.blob} pointerEvents="none" />
 
           {/* Header */}
@@ -72,7 +72,7 @@ export default function RewardsScreen() {
             </View>
           </View>
 
-          {/* Earned Rewards — styled like Recent Activities list */}
+          {/* Earned Rewards  */}
           <Text style={styles.sectionLabel}>EARNED REWARDS</Text>
           <View style={styles.list}>
             {earned.map((item) => (
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  /* List (matches Activities recent list) */
+  /* List */
   list: { paddingHorizontal: 22, gap: 6 },
   listItem: {
     borderRadius: ROW_RADIUS,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  // ✅ Blob aligned with PetNav blob (same placement math)
+  // Blob 
   blob: {
     position: 'absolute',
     left: -width * 0.10,

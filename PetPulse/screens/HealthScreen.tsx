@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
-  StatusBar, // ✅ for Android top handling (no white band)
+  StatusBar, 
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -249,10 +249,10 @@ export default function HealthScreen() {
             contentContainerStyle={{ paddingBottom: padBottom }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Blob aligned like PetNav */}
+            {/* Blob */}
             <View style={styles.blob} pointerEvents="none" />
 
-            {/* Pet Nav (absolute inside itself; we offset flow so it doesn't overlap others) */}
+            {/* Pet Nav  */}
             <View style={{ paddingHorizontal: 22, marginTop: 200 }}>
               <PetNav />
             </View>
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 
-  // 🔵 Blob aligned exactly like PetNav’s
+  // Blob 
   blob: {
     position: 'absolute',
     left: -width * 0.10,

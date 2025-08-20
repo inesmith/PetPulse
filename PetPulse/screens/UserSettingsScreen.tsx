@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  StatusBar, // ✅ draw under status bar to remove top white on Android
+  StatusBar, 
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -253,7 +253,7 @@ export default function UserSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]} edges={['left','right']}>
-      {/* ✅ Remove Android “top white” and draw content under the status bar */}
+      {/*  Remove Android “top white” and draw content under the status bar */}
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <KeyboardAvoidingView
@@ -262,7 +262,7 @@ export default function UserSettingsScreen() {
         keyboardVerticalOffset={80}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: padBottom }} keyboardShouldPersistTaps="handled">
-          {/* 🔵 Blob aligned to PetNav */}
+          {/* Blob */}
           <View style={styles.blob} pointerEvents="none" />
 
           {/* Header */}

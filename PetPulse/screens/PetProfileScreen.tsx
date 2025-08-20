@@ -14,7 +14,7 @@ import {
   Modal,
   Pressable,
   Alert,
-  StatusBar, // ✅ added
+  StatusBar, 
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,7 +41,7 @@ const colors = {
 const HEADER_H = 330;
 const NAV_HEIGHT = 64;
 const NAV_MARGIN = 8;
-// 👇 used only to guarantee enough scroll space beneath the floating nav
+
 const BOTTOM_BAR_H = 88;
 
 const NAME_H = 72;

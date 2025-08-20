@@ -15,7 +15,7 @@ import {
   Image,
   Modal,
   Pressable,
-  StatusBar, // ✅ remove Android top-white & draw under status bar
+  StatusBar, 
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -199,7 +199,7 @@ export default function PetSettingsScreen() {
           contentContainerStyle={{ paddingBottom: padBottom }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 🔵 Blob aligned exactly like PetNav */}
+          {/* Blob  */}
           <View style={styles.blob} pointerEvents="none" />
 
           {/* Header */}
