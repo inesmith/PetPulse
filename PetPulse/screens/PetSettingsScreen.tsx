@@ -26,6 +26,7 @@ import { uploadPetImage } from '../services/storage';
 import { usePets } from '../context/PetContext';
 import { onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { petDoc } from '../src/utils/pets';
+import { pickSingleImageFromLibrary } from '../services/imagePicker';
 
 const { width } = Dimensions.get('window');
 
@@ -124,12 +125,10 @@ export default function PetSettingsScreen() {
       Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
       return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
+    const res = await pickSingleImageFromLibrary();
+if (!res.canceled && res.assets?.[0]?.uri) {
+  setPhotoLocal(res.assets[0].uri);
+}
     if (!res.canceled && res.assets?.[0]?.uri) {
       setPhotoLocal(res.assets[0].uri);
     }

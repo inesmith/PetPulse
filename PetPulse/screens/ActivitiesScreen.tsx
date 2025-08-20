@@ -100,8 +100,7 @@ export default function ActivitiesScreen() {
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { selectedPet } = usePets();
-  const { user } = useAuth();
-
+const { user, loading: authLoading } = useAuth();
   const petId = selectedPet?.id ?? 'primary';
   const padBottom = 64 + Math.max(insets.bottom, 8) + 16;
 
@@ -113,38 +112,45 @@ export default function ActivitiesScreen() {
 
   // Recent activities (desc)
   useEffect(() => {
-    if (!user?.uid) return;
-    const col = petCol(user.uid, petId, 'activities');
-    const qy = query(col, orderBy('createdAt', 'desc'));
-    return onSnapshot(qy, (snap) => {
+  if (authLoading || !user?.uid) return; // ⬅️ guard
+  const col = petCol(user.uid, petId, 'activities');
+  const qy = query(col, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    qy,
+    (snap) => {
       const rows: ActivityItem[] = [];
       snap.forEach((d) => rows.push({ ...(d.data() as ActivityItem), id: d.id }));
       setActivities(rows);
-    });
-  }, [user?.uid, petId]);
+    },
+    (err) => console.log('activities snapshot error', err.code, err.message)
+  );
+}, [authLoading, user?.uid, petId]);
 
   // Today's activities (for totals + map)
   useEffect(() => {
-    if (!user?.uid) return;
-    const { startTS, endTS } = todayRange();
-    const col = petCol(user.uid, petId, 'activities');
-    const qy = query(
-      col,
-      where('createdAt', '>=', startTS),
-      where('createdAt', '<', endTS),
-      orderBy('createdAt', 'asc')
-    );
-    return onSnapshot(qy, (snap) => {
+  if (authLoading || !user?.uid) return; // ⬅️ guard
+  const { startTS, endTS } = todayRange();
+  const col = petCol(user.uid, petId, 'activities');
+  const qy = query(
+    col,
+    where('createdAt', '>=', startTS),
+    where('createdAt', '<', endTS),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(
+    qy,
+    (snap) => {
       const rows: ActivityItem[] = [];
       snap.forEach((d) => rows.push({ ...(d.data() as ActivityItem), id: d.id }));
       setTodayActs(rows);
-      // auto-fit region from today paths once
+
       const paths = rows.map(r => r.path || []).filter(a => a.length);
-if (paths.length) {
-  setMapRegion(computeRegionFromPaths(paths));
-}
-    });
-  }, [user?.uid, petId]);
+      if (paths.length) setMapRegion(computeRegionFromPaths(paths));
+    },
+    (err) => console.log('todayActs snapshot error', err.code, err.message)
+  );
+}, [authLoading, user?.uid, petId]);
 
   useEffect(() => {
   if (mapRegion) return;
@@ -276,8 +282,11 @@ if (paths.length) {
               <MapView
   style={{ width: '100%', height: '100%' }}
   provider={PROVIDER_GOOGLE}
-  initialRegion={mapRegion ?? { latitude: 0, longitude: 0, latitudeDelta: 60, longitudeDelta: 60 }}
-  region={mapRegion}
+  // when mapRegion exists, control it; else just give an initial
+  {...(mapRegion
+    ? { region: mapRegion, onRegionChangeComplete: setMapRegion }
+    : { initialRegion: { latitude: 0, longitude: 0, latitudeDelta: 60, longitudeDelta: 60 } }
+  )}
   showsUserLocation
   followsUserLocation={false}
   toolbarEnabled={false}
@@ -285,7 +294,6 @@ if (paths.length) {
   rotateEnabled={false}
   scrollEnabled
   zoomEnabled
-  onRegionChangeComplete={setMapRegion}
 >
   {pathsToday.map((coords, idx) => (
     <Polyline key={idx} coordinates={coords} strokeWidth={5} strokeColor={colors.blue} />

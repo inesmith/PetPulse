@@ -26,6 +26,7 @@ import { db } from '../firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadPetImage } from '../services/storage';
 import { usePets } from '../context/PetContext';
+import { pickSingleImageFromLibrary } from '../services/imagePicker';
 
 const { width } = Dimensions.get('window');
 
@@ -76,17 +77,19 @@ export default function AddPetScreen() {
 
   // ImagePicker (new API)
   const pickImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
-      return;
-    }
+    console.log('Picking image...');
+    // const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    // if (perm.status !== 'granted') {
+    //   Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
+    //   return;
+    // }
 
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
+    mediaTypes: ['images', 'videos'],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.85,
+    selectionLimit: 1,
     });
 
     if (!res.canceled && res.assets?.[0]?.uri) {

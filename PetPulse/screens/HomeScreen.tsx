@@ -101,10 +101,9 @@ function computeRegionFromPaths(paths: LatLng[][]) {
 
 export default function HomeScreen() {
   const nav = useNavigation<any>();
-  const { user } = useAuth();
   const { selectedPet } = usePets();
   const petId = selectedPet?.id ?? 'primary';
-
+  const { user, loading: authLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState<boolean>(true);
@@ -128,108 +127,131 @@ export default function HomeScreen() {
 
   // profile display name
   useEffect(() => {
-    let unsubUser: undefined | (() => void);
-    (async () => {
-      if (!user?.uid) { setProfileName(null); setLoadingName(false); return; }
-      try { await ensureUserDoc(user.uid, user.email ?? null, user.displayName ?? null); } catch {}
-      const ref = doc(db, 'users', user.uid);
-      unsubUser = onSnapshot(
-        ref,
-        (snap) => {
-          if (!snap.exists()) { setProfileName(null); setLoadingName(false); return; }
-          const data = snap.data() as { displayName?: string; username?: string } | undefined;
-          const fromDb = (data?.displayName ?? data?.username ?? '').trim();
-          setProfileName(fromDb || null); setLoadingName(false);
-        },
-        () => setLoadingName(false)
-      );
-    })();
-    return () => { if (unsubUser) unsubUser(); };
-  }, [user?.uid]);
+  if (authLoading) return; // ⬅️ don’t attach before auth resolved
+  let unsubUser: undefined | (() => void);
+
+  (async () => {
+    if (!user?.uid) { setProfileName(null); setLoadingName(false); return; }
+    try { await ensureUserDoc(user.uid, user.email ?? null, user.displayName ?? null); } catch {}
+    const ref = doc(db, 'users', user.uid);
+    unsubUser = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) { setProfileName(null); setLoadingName(false); return; }
+        const data = snap.data() as { displayName?: string; username?: string } | undefined;
+        const fromDb = (data?.displayName ?? data?.username ?? '').trim();
+        setProfileName(fromDb || null); setLoadingName(false);
+      },
+      (err) => { setLoadingName(false); console.log('user doc snapshot error', err.code, err.message); }
+    );
+  })();
+
+  return () => { if (unsubUser) unsubUser(); };
+}, [authLoading, user?.uid]);
 
   // all pets’ reminders
   useEffect(() => {
-    childUnsubsRef.current.forEach((u) => u());
-    childUnsubsRef.current = [];
-    setRemindersRaw([]);
-    if (!user?.uid) return;
+  // clear any prior child listeners whenever auth/uid changes
+  childUnsubsRef.current.forEach((u) => u());
+  childUnsubsRef.current = [];
+  setRemindersRaw([]);
 
-    const petsCol = collection(db, 'users', user.uid, 'pets');
-    const unsubPets = onSnapshot(
-      petsCol,
-      (petsSnap) => {
-        childUnsubsRef.current.forEach((u) => u());
-        childUnsubsRef.current = [];
-        setRemindersRaw([]);
+  if (authLoading || !user?.uid) return; // ✅ wait until auth is ready
 
-        const nextUnsubs: (() => void)[] = [];
-        petsSnap.forEach((petDoc) => {
-          const petId = petDoc.id;
-          const petData = (petDoc.data() || {}) as { name?: string; photoURL?: string | null };
-          const petName = (petData.name || petId).toString();
-          const petPhotoURL = petData.photoURL ?? null;
+  const petsColRef = collection(db, 'users', user.uid, 'pets');
 
-          const remCol = collection(db, 'users', user.uid, 'pets', petId, 'reminders');
-          const qy = query(remCol, orderBy('when', 'asc'), qLimit(6));
-          const unsubRem = onSnapshot(
-            qy,
-            (remSnap) => {
-              setRemindersRaw((prev) => {
-                const filtered = prev.filter((r) => r.petId !== petId);
-                const rows: ReminderItem[] = remSnap.docs.map((d) => {
-                  const data = d.data() as any;
-                  return { id: d.id, petId, petName, petPhotoURL, title: data.title ?? '', when: data.when ?? null };
-                });
-                const merged = [...filtered, ...rows].sort((a, b) => {
-                  const ta = a.when ? a.when.toMillis() : Number.MAX_SAFE_INTEGER;
-                  const tb = b.when ? b.when.toMillis() : Number.MAX_SAFE_INTEGER;
-                  return ta - tb;
-                });
-                return merged;
-              });
-            },
-            () => setRemindersRaw((prev) => prev.filter((r) => r.petId !== petId))
-          );
-          nextUnsubs.push(unsubRem);
-        });
-        childUnsubsRef.current = nextUnsubs;
-      },
-      () => {
-        childUnsubsRef.current.forEach((u) => u());
-        childUnsubsRef.current = [];
-      }
-    );
-    return () => {
-      if (unsubPets) unsubPets();
+  const unsubPets = onSnapshot(
+    petsColRef,
+    (petsSnap) => {
+      // reset children on every pets snapshot
       childUnsubsRef.current.forEach((u) => u());
       childUnsubsRef.current = [];
-    };
-  }, [user?.uid]);
+      setRemindersRaw([]);
+
+      const nextUnsubs: Array<() => void> = [];
+
+      petsSnap.forEach((petDoc) => {
+        const petId = petDoc.id;
+        const petData = (petDoc.data() || {}) as { name?: string; photoURL?: string | null };
+        const petName = (petData.name || petId).toString();
+        const petPhotoURL = petData.photoURL ?? null;
+
+        const remColRef = collection(db, 'users', user.uid, 'pets', petId, 'reminders');
+        const qy = query(remColRef, orderBy('when', 'asc'), qLimit(6));
+
+        const unsubRem = onSnapshot(
+          qy,
+          (remSnap) => {
+            setRemindersRaw((prev) => {
+              const filtered = prev.filter((r) => r.petId !== petId);
+              const rows: ReminderItem[] = remSnap.docs.map((d) => {
+                const data = d.data() as any;
+                return {
+                  id: d.id,
+                  petId,
+                  petName,
+                  petPhotoURL,
+                  title: data.title ?? '',
+                  when: data.when ?? null,
+                };
+              });
+              const merged = [...filtered, ...rows].sort((a, b) => {
+                const ta = a.when ? a.when.toMillis() : Number.MAX_SAFE_INTEGER;
+                const tb = b.when ? b.when.toMillis() : Number.MAX_SAFE_INTEGER;
+                return ta - tb;
+              });
+              return merged;
+            });
+          },
+          (err) => {
+            console.log('reminders snapshot error', petId, err.code, err.message);
+            setRemindersRaw((prev) => prev.filter((r) => r.petId !== petId));
+          }
+        );
+
+        nextUnsubs.push(unsubRem);
+      });
+
+      childUnsubsRef.current = nextUnsubs;
+    },
+    (err) => {
+      console.log('pets snapshot error', err.code, err.message);
+      childUnsubsRef.current.forEach((u) => u());
+      childUnsubsRef.current = [];
+    }
+  );
+
+  return () => {
+    unsubPets?.();
+    childUnsubsRef.current.forEach((u) => u());
+    childUnsubsRef.current = [];
+  };
+}, [authLoading, user?.uid]);
 
   // subscribe to today's finished activities for this pet
   useEffect(() => {
-    if (!user?.uid) return;
-    const { startTS, endTS } = todayRange();
-    const colRef = petCol(user.uid, petId, 'activities');
-    const qy = query(
-      colRef,
-      where('createdAt', '>=', startTS),
-      where('createdAt', '<', endTS),
-      orderBy('createdAt', 'asc')
-    );
-    return onSnapshot(qy, (snap) => {
+  if (authLoading || !user?.uid) return; // ⬅️ guard
+  const { startTS, endTS } = todayRange();
+  const colRef = petCol(user.uid, petId, 'activities');
+  const qy = query(
+    colRef,
+    where('createdAt', '>=', startTS),
+    where('createdAt', '<', endTS),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(
+    qy,
+    (snap) => {
       const rows: ActivityItem[] = [];
       snap.forEach((d) => rows.push({ ...(d.data() as ActivityItem), id: d.id }));
       setTodayActs(rows);
-      // Fit the region from today’s paths once
-      const paths = rows.map(r => r.path || []).filter(a => a.length);
-if (paths.length) {
-  // Fit to today's paths (overrides any prior region so you see the route)
-  setMapRegion(computeRegionFromPaths(paths));
-}
-    });
-  }, [user?.uid, petId]);
 
+      const paths = rows.map(r => r.path || []).filter(a => a.length);
+      if (paths.length) setMapRegion(computeRegionFromPaths(paths));
+    },
+    (err) => console.log('todayActs (home) snapshot error', err.code, err.message)
+  );
+}, [authLoading, user?.uid, petId]);
   useEffect(() => {
   if (mapRegion) return; // already set (e.g., from today paths)
   let cancelled = false;
@@ -345,8 +367,10 @@ if (paths.length) {
               <MapView
   style={{ width: '100%', height: '100%' }}
   provider={PROVIDER_GOOGLE}
-  initialRegion={mapRegion ?? { latitude: 0, longitude: 0, latitudeDelta: 60, longitudeDelta: 60 }} // harmless placeholder; replaced as soon as mapRegion is set
-  region={mapRegion}
+  {...(mapRegion
+    ? { region: mapRegion, onRegionChangeComplete: setMapRegion }
+    : { initialRegion: { latitude: 0, longitude: 0, latitudeDelta: 60, longitudeDelta: 60 } }
+  )}
   showsUserLocation
   followsUserLocation={false}
   toolbarEnabled={false}
@@ -354,7 +378,6 @@ if (paths.length) {
   rotateEnabled={false}
   scrollEnabled
   zoomEnabled
-  onRegionChangeComplete={setMapRegion}
 >
   {pathsToday.map((coords, idx) => (
     <Polyline key={idx} coordinates={coords} strokeWidth={5} strokeColor={colors.blue} />

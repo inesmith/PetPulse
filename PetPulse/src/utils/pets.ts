@@ -7,3 +7,4 @@ export const petDoc = (uid: string, petId: string) =>
 
 export const petCol = (uid: string, petId: string, sub: string) =>
   collection(db, 'users', uid, 'pets', petId, sub);
+
