@@ -210,12 +210,23 @@ export default function PetProfileScreen() {
           >
             {/* Header image */}
             <View style={styles.photoWrap}>
-              <Image
-                source={require('../assets/lina-lardi.png')}
-                style={styles.photo}
-                resizeMode="cover"
-              />
-            </View>
+  {pet?.photoURL ? (
+    <Image
+      source={{ uri: pet.photoURL }}
+      style={styles.photo}
+      resizeMode="cover"
+    />
+  ) : (
+    <View
+      style={[
+        styles.photo,
+        { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray },
+      ]}
+    >
+      <Text style={{ fontWeight: '900', color: colors.blue }}>NO IMAGE</Text>
+    </View>
+  )}
+</View>
 
             {/* Name row: pill + settings square */}
             <View style={styles.nameRow}>

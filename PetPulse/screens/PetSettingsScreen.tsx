@@ -120,11 +120,11 @@ export default function PetSettingsScreen() {
 
   // ✅ New Expo ImagePicker API usage
   const pickImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
-      return;
-    }
+    // const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    // if (perm.status !== 'granted') {
+    //   Alert.alert('Permission needed', 'Please allow photo access to change your pet picture.');
+    //   return;
+    // }
     const res = await pickSingleImageFromLibrary();
 if (!res.canceled && res.assets?.[0]?.uri) {
   setPhotoLocal(res.assets[0].uri);
@@ -355,7 +355,7 @@ if (!res.canceled && res.assets?.[0]?.uri) {
             <Pressable
               style={m.item}
               onPress={async () => {
-                setPhotoMenuOpen(false);
+                // setPhotoMenuOpen(false);
                 await pickImage();
               }}
             >

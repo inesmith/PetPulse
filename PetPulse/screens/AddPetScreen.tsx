@@ -314,7 +314,9 @@ export default function AddPetScreen() {
 
             <Pressable
               style={m.item}
-              onPress={async () => { setPhotoMenuOpen(false); await pickImage(); }}
+              onPress={async () => { 
+                // setPhotoMenuOpen(false); 
+                await pickImage(); }}
             >
               <Text style={m.itemText}>{hasAnyPhoto ? 'Upload New Image' : 'Upload Image'}</Text>
             </Pressable>
