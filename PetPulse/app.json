@@ -3,8 +3,8 @@
     "name": "PetPulse",
     "slug": "PetPulse",
     "version": "1.0.0",
-    "orientation": "default",
-    "icon": "./assets/app-icon.png",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -13,16 +13,15 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "config": {
-        "googleMapsApiKey": "YOUR_IOS_KEY"
-      }
+      "supportsTablet": true
     },
     "android": {
-      "config": { "googleMaps": { "apiKey": "YOUR_ANDROID_KEY" } },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "edgeToEdgeEnabled": true
     },
-    "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
     "web": {
       "favicon": "./assets/favicon.png"
     }
