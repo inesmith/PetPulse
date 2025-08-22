@@ -279,7 +279,7 @@ if (!res.canceled && res.assets?.[0]?.uri) {
             <LabeledInputRow label="COLOUR" value={colour} onChangeText={setColour} />
             <ChipRow
               label="GENDER"
-              options={['Female','Male','Other'] as const}
+              options={['Female','Male'] as const}
               value={gender}
               onChange={(v)=>setGender(v)}
             />

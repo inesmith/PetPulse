@@ -106,11 +106,6 @@ export default function LoginScreen({ navigation }: any) {
             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
               <Text style={styles.signupLink}>Sign Up</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => resetPassword(emailOrUsername)}>
-                <Text style={styles.forgotPassword}>
-                Forgot password?
-                </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>

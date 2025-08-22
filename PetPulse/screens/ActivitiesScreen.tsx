@@ -195,15 +195,16 @@ const { user, loading: authLoading } = useAuth();
         try {
           if (!user?.uid) return;
           await addDoc(petCol(user.uid, petId, 'activities'), {
-            petId,
-            type,
-            meta: `${(a.meters/1000).toFixed(2)} km • ${a.steps.toLocaleString()} steps • ${fmtDuration(a.elapsedMs)}`,
-            meters: a.meters,
-            steps: a.steps,
-            elapsedMs: a.elapsedMs,
-            path: a.path,
-            createdAt: serverTimestamp(),
-          });
+        userId: user.uid,              // ← required for rules
+        petId,
+        type,
+        meta: `${(a.meters/1000).toFixed(2)} km • ${a.steps.toLocaleString()} steps • ${fmtDuration(a.elapsedMs)}`,
+        meters: a.meters,
+        steps: a.steps,
+        elapsedMs: a.elapsedMs,
+        path: a.path,
+        createdAt: serverTimestamp(),
+      });
         } catch (e) {
           console.warn('Failed to save activity', e);
         }
